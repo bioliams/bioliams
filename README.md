@@ -7,8 +7,9 @@
 Track samples, reagents and freezer boxes without paying per seat,
 waiting on a vendor, or bending your science to fit someone else's database.
 
-**[▶ Try the live demo](https://bioliams.vercel.app)** · no signup needed
-`demo@biolims.dev` / `biolims-demo`
+**[🌐 biolims.github.io](https://bioliams.github.io)** · **[▶ Try the live demo](https://bioliams.vercel.app)**
+
+No signup — sign in with `demo@biolims.dev` / `biolims-demo`
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Self-hostable](https://img.shields.io/badge/self--hostable-yes-blue)

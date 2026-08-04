@@ -1,7 +1,6 @@
-import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/tenant";
-import { getAttachment, resolveAttachmentPath } from "@/lib/services/attachments";
+import { getAttachment, readAttachmentBytes } from "@/lib/services/attachments";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,8 +8,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   try {
     const row = await getAttachment(ctx.orgId, id);
-    const bytes = await readFile(resolveAttachmentPath(row.storagePath));
-    return new NextResponse(new Uint8Array(bytes), {
+    const bytes = await readAttachmentBytes(row.storagePath);
+    return new NextResponse(bytes as BodyInit, {
       headers: {
         "Content-Type": row.mimeType,
         "Content-Disposition": `inline; filename="${encodeURIComponent(row.fileName)}"`,

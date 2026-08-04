@@ -1,18 +1,14 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { attachments } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
+import { getStorage, storageIsEphemeral } from "@/lib/storage";
 import { ServiceError } from "./entities";
 
 const MAX_BYTES = 25 * 1024 * 1024;
-
-function uploadRoot() {
-  return path.resolve(/*turbopackIgnore: true*/ process.env.UPLOAD_DIR ?? "./uploads");
-}
 
 export async function listAttachments(orgId: string, entityId: string) {
   return db
@@ -28,13 +24,21 @@ export async function saveAttachment(
   file: File
 ) {
   if (file.size > MAX_BYTES) throw new ServiceError("File exceeds the 25 MB limit", 400);
+  if (storageIsEphemeral()) {
+    throw new ServiceError(
+      "File storage is not configured for this deployment. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to enable attachments.",
+      501
+    );
+  }
 
-  // Store under org/entity so a leaked id from another org can't reach these bytes.
-  const dir = path.join(uploadRoot(), orgId, entityId);
-  await mkdir(dir, { recursive: true });
-  const storedName = `${randomUUID()}${path.extname(file.name).slice(0, 16)}`;
-  const fullPath = path.join(dir, storedName);
-  await writeFile(fullPath, Buffer.from(await file.arrayBuffer()));
+  // Key by org and entity so a leaked id from another org can't reach these bytes.
+  const key = path.posix.join(
+    orgId,
+    entityId,
+    `${randomUUID()}${path.extname(file.name).slice(0, 16)}`
+  );
+  const contentType = file.type || "application/octet-stream";
+  await getStorage().put(key, new Uint8Array(await file.arrayBuffer()), contentType);
 
   const [row] = await db
     .insert(attachments)
@@ -42,9 +46,9 @@ export async function saveAttachment(
       organizationId: orgId,
       entityId,
       fileName: file.name,
-      mimeType: file.type || "application/octet-stream",
+      mimeType: contentType,
       sizeBytes: file.size,
-      storagePath: path.join(orgId, entityId, storedName),
+      storagePath: key,
       uploadedBy: actorId,
     })
     .returning();
@@ -70,18 +74,16 @@ export async function getAttachment(orgId: string, id: string) {
   return rows[0];
 }
 
-/** Absolute path for a stored attachment, guarded against traversal. */
-export function resolveAttachmentPath(storagePath: string) {
-  const root = uploadRoot();
-  const full = path.resolve(root, storagePath);
-  if (!full.startsWith(root + path.sep)) throw new ServiceError("Invalid attachment path", 400);
-  return full;
+export async function readAttachmentBytes(storagePath: string) {
+  return getStorage().get(storagePath);
 }
 
 export async function deleteAttachment(orgId: string, actorId: string | null, id: string) {
   const row = await getAttachment(orgId, id);
-  await db.delete(attachments).where(and(eq(attachments.organizationId, orgId), eq(attachments.id, id)));
-  await unlink(resolveAttachmentPath(row.storagePath)).catch(() => {});
+  await db
+    .delete(attachments)
+    .where(and(eq(attachments.organizationId, orgId), eq(attachments.id, id)));
+  await getStorage().remove(row.storagePath);
   await logAudit({
     orgId,
     actorId,

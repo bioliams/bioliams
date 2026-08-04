@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Emits .next/standalone so the Docker image ships without node_modules.
-  output: "standalone",
+  // Standalone output is for the Docker image only; Vercel builds its own bundle.
+  ...(process.env.DOCKER_BUILD === "1" ? { output: "standalone" as const } : {}),
 };
 
 export default nextConfig;

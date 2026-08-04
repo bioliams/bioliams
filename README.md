@@ -74,15 +74,17 @@ To load example records and print an API key:
 npm run db:seed -- your-lab-slug
 ```
 
-### Deploying with Docker
+### Deploying
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Vercel + Supabase, or self-host with Docker:
 
 ```bash
 echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" > .env
 docker compose --profile prod up -d --build
+docker compose exec app npm run db:migrate
 ```
 
-The app runs on port 3000 with Postgres and an uploads volume alongside it. Run
-`npm run db:migrate` once against the database before first use.
+The app runs on port 3000 with Postgres and an uploads volume alongside it.
 
 ---
 

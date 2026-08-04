@@ -9,8 +9,11 @@ import { NavLink } from "@/components/nav-link";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrg();
-  const [org] = await db.select().from(organization).where(eq(organization.id, ctx.orgId));
-  const types = await listEntityTypes(ctx.orgId);
+  // Both only need the org id — issue them together rather than round-tripping twice.
+  const [[org], types] = await Promise.all([
+    db.select().from(organization).where(eq(organization.id, ctx.orgId)),
+    listEntityTypes(ctx.orgId),
+  ]);
 
   return (
     <div className="flex min-h-screen">

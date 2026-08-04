@@ -14,8 +14,10 @@ export default async function LocationsPage({
 
   let selected = null;
   if (id) {
-    const location = await getLocation(ctx.orgId, id).catch(notFoundOn404);
-    const contents = await getLocationContents(ctx.orgId, id);
+    const [location, contents] = await Promise.all([
+      getLocation(ctx.orgId, id).catch(notFoundOn404),
+      getLocationContents(ctx.orgId, id),
+    ]);
     selected = {
       id: location.id,
       name: location.name,

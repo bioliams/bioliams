@@ -15,8 +15,9 @@ export default async function RegistryPage({
   const { q, status } = await searchParams;
   const ctx = await requireOrg();
 
-  const type = await getEntityTypeBySlug(ctx.orgId, slug).catch(notFoundOn404);
-  const [rows, locations] = await Promise.all([
+  // listEntities resolves the slug itself, so all three can go out at once.
+  const [type, rows, locations] = await Promise.all([
+    getEntityTypeBySlug(ctx.orgId, slug).catch(notFoundOn404),
     listEntities(ctx.orgId, { typeSlug: slug, search: q, status, limit: 500 }),
     listLocations(ctx.orgId),
   ]);

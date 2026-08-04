@@ -70,12 +70,21 @@ export async function updateInventory(
     .where(and(eq(inventoryItems.organizationId, orgId), eq(inventoryItems.entityId, entityId)))
     .returning();
 
+  // Label the entry with the record it belongs to; an id alone is unreadable
+  // in the activity feed.
+  const [entity] = await db
+    .select({ displayId: entities.displayId, name: entities.name })
+    .from(entities)
+    .where(eq(entities.id, entityId))
+    .limit(1);
+
   await logAudit({
     orgId,
     actorId,
     action: "inventory.update",
     targetKind: "inventory",
     targetId: entityId,
+    targetLabel: entity ? `${entity.displayId} ${entity.name}` : undefined,
     diff: {
       before: { quantity: before.quantity, unit: before.unit },
       after: { quantity: row.quantity, unit: row.unit },

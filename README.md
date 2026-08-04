@@ -1,201 +1,174 @@
-# BioLIMS
+<div align="center">
 
-An open-source Laboratory Information Management System — a self-hostable alternative to
-commercial lab platforms like Scispot, Benchling and LabWare.
+# 🧪 BioLIMS
 
-BioLIMS is built around one idea: **you define what your lab tracks.** Instead of shipping a
-fixed "Sample" table, it lets you create record types with your own fields — no code, no
-consultant, no per-seat licence. Samples, reagents, primers, cell lines, mouse colonies,
-whatever your science actually needs.
+### The lab inventory system your lab actually fits into.
 
-> **Status:** v0.1 — the LIMS core is complete and tested. ELN, workflow automation and
-> instrument integrations are on the roadmap below.
+Track samples, reagents and freezer boxes without paying per seat,
+waiting on a vendor, or bending your science to fit someone else's database.
 
----
+**[▶ Try the live demo](https://bioliams.vercel.app)** · no signup needed
+`demo@biolims.dev` / `biolims-demo`
 
-## What's in v0.1
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Self-hostable](https://img.shields.io/badge/self--hostable-yes-blue)
+![Status](https://img.shields.io/badge/status-v0.1-orange)
 
-**Custom record types.** Build a schema in the browser: add fields of type text, number, date,
-select, multi-select or boolean; mark them required; set units. Every type gets its own
-auto-incrementing ID series (`SMP-000001`, `RGT-000042`).
+<img src="docs/screenshots/registry.png" alt="BioLIMS sample registry" width="100%">
 
-**Sample registry.** A searchable, filterable table per record type with columns driven by your
-schema. CSV import with per-row validation errors, and CSV export.
-
-**Storage management.** Model your physical lab as a tree — site → room → freezer → shelf →
-rack → box. Boxes render as an interactive grid; click a well to free it, or place a sample
-into a specific position. Every sample's full storage path is one click away.
-
-**Inventory.** Mark a record type as inventory-tracked and it gains quantity, unit, lot and
-expiry. Set a minimum threshold and low-stock items surface on the dashboard. Quantities are
-editable inline for fast bench updates.
-
-**Sample lineage.** Records can derive from other records, so aliquots and extractions keep a
-link back to the parent. The detail page shows both directions.
-
-**Attachments.** Upload files against any record — instrument outputs, gel images, CoAs.
-
-**Audit trail.** Every create, update, move and delete is written to an append-only log with
-actor, timestamp and a before/after diff. Viewable lab-wide or per record.
-
-**Multi-tenancy.** Organizations ("labs") with member roles and email invitations. Every query
-is scoped by organization at the service layer, so one lab can never read another's data —
-including through the API.
-
-**REST API.** Full CRUD over records, record types and locations, authenticated with
-per-lab API keys. OpenAPI spec at `/api/v1/openapi.json`.
+</div>
 
 ---
 
-## Quick start
+## The problem with lab software
 
-Requires **Node 20+** and **Docker** (for Postgres).
+Most labs run on one of two things: a spreadsheet that everyone is quietly afraid of,
+or a commercial LIMS that took six months and a consultant to configure.
+
+The spreadsheet works right up until someone asks *"where is that sample now?"* or
+*"which aliquots came from patient 014?"* — and nobody can answer without a phone call.
+
+The commercial platform answers those questions, but it charges per seat, keeps your data
+on someone else's terms, and models your science the way its vendor imagined it. Adding a
+field can mean a support ticket.
+
+**BioLIMS is the third option.** Real sample tracking, and you own all of it.
+
+---
+
+## Why BioLIMS is different
+
+### 🧬 You define what you track
+
+Most systems ship a fixed `Sample` table and expect your science to fit it. BioLIMS ships
+with sensible starters — Sample, Reagent, Primer — and then gets out of the way.
+
+Track cell lines with passage numbers. Mouse colonies with cage IDs. Plasmids with backbone
+and resistance marker. Build the record type in the browser, pick your fields, done. No
+schema migration, no developer, no ticket.
+
+<img src="docs/screenshots/schema-builder.png" alt="Building a custom record type" width="100%">
+
+### 🔓 Your data, your server, no per-seat bill
+
+MIT licensed. Run it on a spare machine in the lab, or on a cloud account you control.
+Add your whole team without watching a licence counter. Export everything to CSV whenever
+you want, because it's your data and it lives in your Postgres database.
+
+No sales call. No quote. No minimum seats.
+
+### ⚡ Configured in an afternoon, not a quarter
+
+There is no implementation project. Sign up, name your lab, and you have starter record
+types and a freezer tree already in place. Most labs are registering real samples the same
+day.
+
+---
+
+## What you can do
+
+**📍 Find any sample, down to the well.** Model your real storage — site, room, freezer,
+shelf, rack, box — and place samples in specific positions. Open a box and see exactly
+what's in it and what's free. No more opening three freezers to find one tube.
+
+<img src="docs/screenshots/storage.png" alt="Freezer box grid" width="100%">
+
+**🧫 Follow the lineage.** Aliquots and extractions stay linked to what they came from.
+Open a gDNA prep and see the blood draw it started as, or open the draw and see everything
+derived from it.
+
+**📦 Stop running out of reagents.** Track quantities, lots and expiry. Set a minimum and
+low-stock items surface on the dashboard before the experiment stops.
+
+**🕓 Answer "who changed this?" instantly.** Every create, edit, move and delete is written
+to an append-only log with the person, the timestamp and what changed — per record and
+lab-wide.
+
+<img src="docs/screenshots/audit.png" alt="Audit log" width="100%">
+
+**📥 Bring your spreadsheet with you.** Import a CSV and BioLIMS matches your columns to
+your fields, validating as it goes and telling you exactly which rows need attention.
+Export any registry back out at any time.
+
+**🔌 Script it.** Everything the interface does is available over a REST API with per-lab
+keys, so a notebook can register samples, look up storage, or pull a dataset for analysis.
+
+```python
+import requests
+
+requests.post(
+    "https://your-lab.example.com/api/v1/entities",
+    headers={"Authorization": f"Bearer {BIOLIMS_KEY}"},
+    json={
+        "type": "sample",
+        "name": "PT-014 gDNA",
+        "data": {"sample_type": "DNA", "concentration": 88.4},
+    },
+)
+```
+
+**👥 Built for a team.** Invite colleagues, assign roles, and work in the same lab. Every
+query is scoped to your organization, so labs sharing an instance never see each other's
+data.
+
+---
+
+## Try it
+
+The fastest way to judge it is to click around the [**live demo**](https://bioliams.vercel.app)
+— it's a populated lab with samples in freezer boxes, low-stock reagents and a full
+audit trail.
+
+> Sign in with `demo@biolims.dev` / `biolims-demo`.
+> It's a shared public sandbox, so expect other people's edits in there. Don't put anything
+> real in it.
+
+### Run your own
+
+You need Docker and about two minutes.
 
 ```bash
-git clone git@github.com:bioliams/bioliams.git
+git clone https://github.com/bioliams/bioliams.git
 cd bioliams
-npm install
-
-cp .env.example .env
-# Set a real secret:
-echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" >> .env
-
-docker compose up -d db     # Postgres on :5432
-npm run db:migrate          # create tables
-npm run dev                 # http://localhost:3000
-```
-
-Open http://localhost:3000, create an account, and name your lab. You'll be set up with
-starter record types (Sample, Reagent, Primer) and a demo freezer → rack → box tree.
-
-To load example records and print an API key:
-
-```bash
-npm run db:seed -- your-lab-slug
-```
-
-### Deploying
-
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Vercel + Supabase, or self-host with Docker:
-
-```bash
 echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" > .env
 docker compose --profile prod up -d --build
 docker compose exec app npm run db:migrate
 ```
 
-The app runs on port 3000 with Postgres and an uploads volume alongside it.
+Open http://localhost:3000, create your account, name your lab. That's the whole
+installation.
+
+Deploying to a server or a cloud platform instead? See **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
 ---
 
-## Using the API
+## Where the project is today
 
-Create a key in **Settings → API keys**, then:
+**v0.1 — the sample-tracking core is complete and in use.** Everything described above
+works today. It is young software: expect rough edges, and please report them.
 
-```bash
-export BIOLIMS_KEY=lk_...
+Being built next:
 
-# List all samples
-curl -H "Authorization: Bearer $BIOLIMS_KEY" \
-  "http://localhost:3000/api/v1/entities?type=sample"
-
-# Register a new sample
-curl -X POST -H "Authorization: Bearer $BIOLIMS_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"type":"sample","name":"Patient 042 gDNA",
-       "data":{"sample_type":"DNA","organism":"Homo sapiens","concentration":88.1}}' \
-  "http://localhost:3000/api/v1/entities"
-
-# Move a sample into well B3 of a box
-curl -X PATCH -H "Authorization: Bearer $BIOLIMS_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"location_id":"<box-id>","position_row":1,"position_col":2}' \
-  "http://localhost:3000/api/v1/entities/SMP-000042"
-```
-
-Validation errors come back per field, so scripted imports can report exactly what's wrong:
-
-```json
-{ "error": "Validation failed",
-  "fieldErrors": { "sample_type": "Invalid option: expected one of \"Blood\"|\"DNA\"|…" } }
-```
-
-| Endpoint | Methods | Purpose |
-| --- | --- | --- |
-| `/api/v1/entities` | `GET`, `POST` | List and register records |
-| `/api/v1/entities/{id}` | `GET`, `PATCH`, `DELETE` | Fetch, update, archive — accepts internal ID or display ID |
-| `/api/v1/entity-types` | `GET`, `POST` | Inspect and create record types |
-| `/api/v1/locations` | `GET`, `POST` | Storage hierarchy |
-| `/api/v1/openapi.json` | `GET` | Machine-readable spec |
+| | |
+|---|---|
+| 📓 **Electronic lab notebook** | Experiment write-ups linked to the samples they used |
+| ⚙️ **Workflow automation** | Multi-step protocols with task assignment and sample state |
+| 🔬 **Instrument integrations** | Turn plate reader, qPCR and sequencer output into records |
+| 🏷️ **Barcode & label printing** | Scan a tube to pull it up; print freezer labels |
+| 🐍 **Python client** | A proper `biolims` package for notebook users |
+| ✍️ **Electronic signatures** | Reviewed-and-approved sign-off on records |
 
 ---
 
-## Architecture
+## Contributing
 
-A single Next.js application — one process, one deployable.
+The most useful contribution isn't always code. If you run a lab and something here is
+wrong, awkward, or missing, [**open an issue**](https://github.com/bioliams/bioliams/issues)
+— knowing which of the roadmap items actually matters shapes what gets built next.
 
-```
-src/
-  app/
-    (app)/            authenticated UI: dashboard, registries, storage, inventory, settings
-    (auth)/           sign-in, sign-up
-    api/v1/           REST API (API-key auth)
-    api/auth/         better-auth handler
-  db/schema/          Drizzle table definitions
-  lib/
-    services/         all business logic — shared by server actions AND the REST API
-    tenant.ts         resolves session → active organization
-    audit.ts          append-only audit writer
-    entity-schema.ts  builds a Zod validator from user-defined field definitions
-```
-
-Two design decisions worth knowing:
-
-**Every mutation goes through `lib/services/`.** The UI calls these via server actions; the
-REST API calls the same functions. There is exactly one code path that can create a sample, so
-validation, ID generation and audit logging can't drift apart between the two entry points.
-
-**Organization scoping is a function argument, not middleware.** Every service function takes
-`orgId` as its first parameter and every query filters on it. A missing tenant check becomes a
-type error rather than a silent data leak.
-
-Custom field values live in a `jsonb` column validated at write time by a Zod schema built
-from the record type's field definitions (`buildEntitySchema`). You get schema flexibility
-without giving up validation.
-
-**Stack:** Next.js 16 · TypeScript · PostgreSQL 16 · Drizzle ORM · better-auth · Tailwind CSS ·
-shadcn/ui · Zod · Vitest
-
----
-
-## Development
-
-```bash
-npm run dev          # dev server
-npm run build        # production build (also typechecks)
-npm test             # unit tests
-npm run lint         # eslint
-npm run db:generate  # generate a migration after editing src/db/schema
-npm run db:migrate   # apply migrations
-npm run db:studio    # browse the database
-```
-
----
-
-## Roadmap
-
-- **ELN** — rich-text experiment notebooks with protocol templates, linked to samples
-- **Workflow automation** — multi-step lab processes with task assignment and sample state
-- **Instrument integrations** — parsers that turn plate readers, sequencers and qPCR output
-  into structured records
-- **Barcode / label printing** — scan-to-find and Zebra label support
-- **Python client** — a `biolims` package for notebook users
-- **Electronic signatures** — 21 CFR Part 11 style sign-off on records
-- **S3-compatible attachment storage**
-
-Contributions are very welcome — especially from people who actually run a lab and can say
-which of the above matters most.
+If you do want to build: **[CONTRIBUTING.md](CONTRIBUTING.md)** covers the architecture and
+how to get a development environment running.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Use it, fork it, run it commercially. It's yours.

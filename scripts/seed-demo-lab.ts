@@ -12,7 +12,6 @@ import { user, member, organization, entityTypes, locations } from "../src/db/sc
 import { auth } from "../src/lib/auth";
 import { seedOrganization } from "../src/lib/services/seed-org";
 import { createEntity } from "../src/lib/services/entities";
-import { updateInventory } from "../src/lib/services/inventory";
 
 const EMAIL = process.env.DEMO_EMAIL ?? "demo@biolims.dev";
 const PASSWORD = process.env.DEMO_PASSWORD ?? "biolims-demo";
@@ -97,14 +96,14 @@ async function main() {
   ];
   for (const r of reagents) {
     const { name, qty, unit, min, ...data } = r;
-    const row = await createEntity(orgId, demoUser.id, {
+    await createEntity(orgId, demoUser.id, {
       typeSlug: "reagent",
       name,
       data,
       quantity: qty,
       unit,
+      minThreshold: min,
     });
-    await updateInventory(orgId, demoUser.id, row.id, { minThreshold: min });
   }
 
   const primers = [

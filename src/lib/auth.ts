@@ -17,10 +17,19 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
   baseURL: baseUrl(),
   secret: process.env.BETTER_AUTH_SECRET,
-  // Preview deployments get a fresh hostname on every push, so trust them too.
+  // Every Vercel deployment gets its own hostname, and the project alias differs
+  // again from those, so trust the whole vercel.app space when running there.
   trustedOrigins: [
     baseUrl(),
-    ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+    ...(process.env.VERCEL
+      ? [
+          "https://*.vercel.app",
+          ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+          ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
+            ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`]
+            : []),
+        ]
+      : []),
   ],
   emailAndPassword: {
     enabled: true,

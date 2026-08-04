@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
+import { notFoundOn404 } from "@/lib/not-found";
 import { db } from "@/db";
 import { entities } from "@/db/schema";
 import { requireOrg } from "@/lib/tenant";
@@ -22,8 +23,10 @@ export default async function EntityDetailPage({
   const { slug, displayId } = await params;
   const ctx = await requireOrg();
 
-  const type = await getEntityTypeBySlug(ctx.orgId, slug);
-  const entity = await getEntity(ctx.orgId, displayId);
+  const [type, entity] = await Promise.all([
+    getEntityTypeBySlug(ctx.orgId, slug).catch(notFoundOn404),
+    getEntity(ctx.orgId, displayId).catch(notFoundOn404),
+  ]);
 
   const [children, locations, files, history, inventory] = await Promise.all([
     getChildren(ctx.orgId, entity.id),

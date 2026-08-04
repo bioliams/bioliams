@@ -1,6 +1,7 @@
 import { requireOrg } from "@/lib/tenant";
 import { getEntityTypeBySlug, listEntities } from "@/lib/services/entities";
 import { listLocations } from "@/lib/services/locations";
+import { notFoundOn404 } from "@/lib/not-found";
 import { RegistryView } from "./registry-view";
 
 export default async function RegistryPage({
@@ -14,7 +15,7 @@ export default async function RegistryPage({
   const { q, status } = await searchParams;
   const ctx = await requireOrg();
 
-  const type = await getEntityTypeBySlug(ctx.orgId, slug);
+  const type = await getEntityTypeBySlug(ctx.orgId, slug).catch(notFoundOn404);
   const [rows, locations] = await Promise.all([
     listEntities(ctx.orgId, { typeSlug: slug, search: q, status, limit: 500 }),
     listLocations(ctx.orgId),

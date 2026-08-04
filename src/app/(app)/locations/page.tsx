@@ -1,6 +1,7 @@
 import { requireOrg } from "@/lib/tenant";
 import { getLocationTree, getLocationContents, getLocation } from "@/lib/services/locations";
 import { LocationsView } from "./locations-view";
+import { notFoundOn404 } from "@/lib/not-found";
 
 export default async function LocationsPage({
   searchParams,
@@ -13,7 +14,7 @@ export default async function LocationsPage({
 
   let selected = null;
   if (id) {
-    const location = await getLocation(ctx.orgId, id);
+    const location = await getLocation(ctx.orgId, id).catch(notFoundOn404);
     const contents = await getLocationContents(ctx.orgId, id);
     selected = {
       id: location.id,

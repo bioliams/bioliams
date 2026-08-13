@@ -125,7 +125,16 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by name, ID, type or lot…"
+        onKeyDown={(e) => {
+          // A barcode scanner is a keyboard: it types the ID and presses Enter.
+          // Selecting the single match turns the search box into a scan target
+          // with no extra hardware support needed.
+          if (e.key !== "Enter" || matches.length !== 1) return;
+          e.preventDefault();
+          if (!(matches[0].entityId in basket)) toggle(matches[0]);
+          setQuery("");
+        }}
+        placeholder="Search or scan a label — name, ID, type or lot…"
         className="max-w-md"
       />
 

@@ -5,7 +5,7 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 
 /** Vercel sets VERCEL_URL per deployment; prefer an explicit URL when given. */
-function baseUrl() {
+export function baseUrl() {
   if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;

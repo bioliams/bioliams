@@ -11,6 +11,8 @@ import { listAudit } from "@/lib/services/audit";
 import { getInventoryForEntity } from "@/lib/services/inventory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { qrSvg } from "@/lib/barcode";
 import { formatFieldValue } from "@/lib/format-field";
 import { summariseAudit } from "@/lib/audit-summary";
 import { EntityDetailActions } from "./detail-actions";
@@ -36,6 +38,8 @@ export default async function EntityDetailPage({
     listAudit(ctx.orgId, { targetId: entity.id, limit: 50 }),
     getInventoryForEntity(ctx.orgId, entity.id),
   ]);
+
+  const labelSvg = await qrSvg(entity.displayId, 112);
 
   const locationPath = entity.locationId
     ? await getLocationPath(ctx.orgId, entity.locationId)
@@ -147,15 +151,23 @@ export default async function EntityDetailPage({
               {children.length === 0 ? (
                 <p className="text-muted-foreground">None</p>
               ) : (
-                <ul className="space-y-1">
-                  {children.map((c) => (
-                    <li key={c.id}>
-                      <Link href={`/t/${slug}/${c.displayId}`} className="hover:underline">
-                        {c.displayId} · {c.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ul className="space-y-1">
+                    {children.map((c) => (
+                      <li key={c.id}>
+                        <Link href={`/t/${slug}/${c.displayId}`} className="hover:underline">
+                          {c.displayId} · {c.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href={`/labels?ids=${children.map((c) => c.displayId).join(",")}`}
+                    className="mt-2 inline-block text-xs text-muted-foreground hover:underline"
+                  >
+                    Print labels for all {children.length} →
+                  </Link>
+                </>
               )}
             </div>
           </CardContent>
@@ -163,6 +175,27 @@ export default async function EntityDetailPage({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Label</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center gap-4">
+            <div
+              className="shrink-0 [&>svg]:h-28 [&>svg]:w-28"
+              dangerouslySetInnerHTML={{ __html: labelSvg }}
+            />
+            <div className="space-y-2 text-sm">
+              <p className="font-mono font-semibold">{entity.displayId}</p>
+              <p className="text-muted-foreground">
+                Scan with any phone camera to open this record — no app needed.
+              </p>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/labels?ids=${entity.displayId}`}>Print label</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <AttachmentsPanel
           entityId={entity.id}
           typeSlug={slug}

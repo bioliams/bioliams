@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-muted/30 md:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r bg-muted/30 md:flex print:hidden">
         <div className="flex h-14 items-center border-b px-4">
           <Link href="/" className="font-semibold tracking-tight">
             🧪 BioLIMS
@@ -64,7 +64,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b px-4 md:px-6">
+        <header className="flex h-14 items-center justify-between border-b px-4 md:px-6 print:hidden">
           <span className="truncate text-sm font-medium">{org?.name ?? "Lab"}</span>
           <UserMenu name={ctx.userName} role={ctx.role} />
         </header>

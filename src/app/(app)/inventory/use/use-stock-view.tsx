@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { consumeInventoryAction } from "../actions";
@@ -52,8 +53,9 @@ function relativeTime(iso: string) {
 
 export function UseStockView({ items, usage }: { items: UsableItem[]; usage: UsageEntry[] }) {
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [amount, setAmount] = useState("1");
+  // entityId → amount to take. One protocol usually draws on several reagents,
+  // so selection is a basket rather than a single highlighted card.
+  const [basket, setBasket] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
 
   const matches = useMemo(() => {
@@ -66,24 +68,41 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
     );
   }, [items, query]);
 
-  function select(item: UsableItem) {
-    setSelectedId(item.entityId);
-    setAmount("1");
+  const selectedIds = Object.keys(basket);
+
+  function toggle(item: UsableItem) {
+    setBasket((prev) => {
+      if (item.entityId in prev) {
+        const rest = { ...prev };
+        delete rest[item.entityId];
+        return rest;
+      }
+      return { ...prev, [item.entityId]: "1" };
+    });
   }
 
-  function use(item: UsableItem) {
-    const requested = amount;
+  function setAmount(entityId: string, value: string) {
+    setBasket((prev) => ({ ...prev, [entityId]: value }));
+  }
+
+  function record() {
+    const entries = selectedIds.map((entityId) => ({ entityId, amount: basket[entityId] }));
+    if (entries.length === 0) return;
     startTransition(async () => {
-      const result = await consumeInventoryAction(item.entityId, requested);
+      const result = await consumeInventoryAction(entries);
       if (result.error) {
         toast.error(result.error);
         return;
       }
-      const left = result.value ? `${tidy(result.value.quantity)} ${result.value.unit}` : "";
-      toast.success(`Used ${tidy(requested)} ${item.unit} of ${item.name}`, {
-        description: left ? `${left} left` : undefined,
-      });
-      setAmount("1");
+      const used = result.value ?? [];
+      const summary = used
+        .map((u) => `${u.name}: ${tidy(u.quantity)} ${u.unit} left`)
+        .join(" · ");
+      toast.success(
+        used.length === 1 ? `Used ${used[0].name}` : `Recorded ${used.length} items`,
+        { description: summary }
+      );
+      setBasket({});
     });
   }
 
@@ -93,7 +112,8 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
         <div>
           <h1 className="text-xl font-semibold">Use stock</h1>
           <p className="text-sm text-muted-foreground">
-            Search for what you took off the shelf, then record how much you used.
+            Search for what you took off the shelf, tick everything the experiment used, and
+            record it in one go.
           </p>
         </div>
         <Button variant="outline" asChild>
@@ -119,14 +139,14 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {matches.map((item) => {
-          const selected = item.entityId === selectedId;
+          const selected = item.entityId in basket;
           const available = Number(item.quantity);
           const low = item.minThreshold !== null && available <= Number(item.minThreshold);
           const empty = available <= 0;
           return (
             <Card
               key={item.entityId}
-              onClick={() => !selected && select(item)}
+              onClick={() => toggle(item)}
               className={cn(
                 "cursor-pointer transition-colors",
                 selected ? "border-primary ring-1 ring-primary" : "hover:border-foreground/30"
@@ -149,11 +169,20 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
                       {item.lot ? ` · lot ${item.lot}` : ""}
                     </p>
                   </div>
-                  {empty ? (
-                    <Badge variant="destructive">Out</Badge>
-                  ) : low ? (
-                    <Badge variant="destructive">Low</Badge>
-                  ) : null}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {empty ? (
+                      <Badge variant="destructive">Out</Badge>
+                    ) : low ? (
+                      <Badge variant="destructive">Low</Badge>
+                    ) : null}
+                    <Checkbox
+                      checked={selected}
+                      disabled={empty}
+                      aria-label={`Select ${item.name}`}
+                      onClick={(e) => e.stopPropagation()}
+                      onCheckedChange={() => toggle(item)}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-baseline gap-1.5">
@@ -177,23 +206,16 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
                       type="number"
                       step="any"
                       min="0"
-                      value={amount}
+                      value={basket[item.entityId]}
                       disabled={pending}
-                      onChange={(e) => setAmount(e.target.value)}
+                      onChange={(e) => setAmount(item.entityId, e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !pending && !empty) use(item);
+                        if (e.key === "Enter" && !pending) record();
                       }}
                       className="h-9 w-24"
                       aria-label={`Amount of ${item.name} to use`}
                     />
-                    <span className="text-sm text-muted-foreground">{item.unit}</span>
-                    <Button
-                      className="ml-auto"
-                      disabled={pending || empty}
-                      onClick={() => use(item)}
-                    >
-                      {pending ? "Recording…" : "Use"}
-                    </Button>
+                    <span className="text-sm text-muted-foreground">to use</span>
                   </div>
                 )}
               </CardContent>
@@ -201,6 +223,21 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
           );
         })}
       </div>
+
+      {selectedIds.length > 0 && (
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-md border bg-background/95 p-3 shadow-lg backdrop-blur">
+          <span className="text-sm">
+            <strong>{selectedIds.length}</strong>{" "}
+            {selectedIds.length === 1 ? "item" : "items"} selected
+          </span>
+          <Button variant="ghost" size="sm" disabled={pending} onClick={() => setBasket({})}>
+            Clear
+          </Button>
+          <Button className="ml-auto" disabled={pending} onClick={record}>
+            {pending ? "Recording…" : `Use ${selectedIds.length === 1 ? "item" : "all"}`}
+          </Button>
+        </div>
+      )}
 
       {usage.length > 0 && (
         <div className="space-y-2 pt-2">

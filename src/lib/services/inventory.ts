@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, type Db } from "@/db";
 import { inventoryItems, inventoryEvents, entities, entityTypes, user } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
 import { ServiceError } from "./entities";
@@ -119,6 +119,36 @@ export async function consumeInventory(
   entityId: string,
   amount: string
 ) {
+  return consumeOne(db, orgId, actorId, entityId, amount);
+}
+
+/**
+ * Use several items in one go — a protocol usually draws on more than one
+ * reagent. All of it or none of it: one transaction, so a short item late in
+ * the list can't leave the earlier ones already deducted.
+ */
+export async function consumeInventoryMany(
+  orgId: string,
+  actorId: string | null,
+  entries: { entityId: string; amount: string }[]
+) {
+  if (entries.length === 0) throw new ServiceError("Nothing selected", 400);
+  return db.transaction(async (tx) =>
+    Promise.all(
+      entries.map((e) => consumeOne(tx, orgId, actorId, e.entityId, e.amount))
+    )
+  );
+}
+
+type Tx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+async function consumeOne(
+  tx: Tx,
+  orgId: string,
+  actorId: string | null,
+  entityId: string,
+  amount: string
+) {
   const parsed = Number(amount);
   if (!amount.trim() || !Number.isFinite(parsed) || parsed <= 0) {
     throw new ServiceError("Enter an amount greater than zero", 400, {
@@ -126,7 +156,7 @@ export async function consumeInventory(
     });
   }
 
-  const [row] = await db
+  const [row] = await tx
     .update(inventoryItems)
     .set({
       // Subtract in Postgres so exact numerics stay exact; JS floats would
@@ -143,23 +173,28 @@ export async function consumeInventory(
     )
     .returning();
 
+  const [entity] = await tx
+    .select({ displayId: entities.displayId, name: entities.name })
+    .from(entities)
+    .where(and(eq(entities.organizationId, orgId), eq(entities.id, entityId)))
+    .limit(1);
+
   if (!row) {
-    const existing = await getInventoryForEntity(orgId, entityId);
+    const [existing] = await tx
+      .select()
+      .from(inventoryItems)
+      .where(and(eq(inventoryItems.organizationId, orgId), eq(inventoryItems.entityId, entityId)))
+      .limit(1);
     if (!existing) throw new ServiceError("This record does not track inventory", 404);
+    // Name the item: in a batch the message is useless without it.
     throw new ServiceError(
-      `Only ${existing.quantity} ${existing.unit} left — reduce the amount or record a restock`,
+      `Only ${existing.quantity} ${existing.unit} of ${entity?.name ?? "this item"} left — nothing was recorded`,
       400,
       { amount: `Only ${existing.quantity} ${existing.unit} available` }
     );
   }
 
-  const [entity] = await db
-    .select({ displayId: entities.displayId, name: entities.name })
-    .from(entities)
-    .where(eq(entities.id, entityId))
-    .limit(1);
-
-  await db.insert(inventoryEvents).values({
+  await tx.insert(inventoryEvents).values({
     organizationId: orgId,
     entityId,
     kind: "consume",
@@ -169,17 +204,25 @@ export async function consumeInventory(
     actorId,
   });
 
-  await logAudit({
-    orgId,
-    actorId,
-    action: "inventory.consume",
-    targetKind: "inventory",
-    targetId: entityId,
-    targetLabel: entity ? `${entity.displayId} ${entity.name}` : undefined,
-    diff: { used: `${amount} ${row.unit}`, remaining: `${row.quantity} ${row.unit}` },
-  });
+  await logAudit(
+    {
+      orgId,
+      actorId,
+      action: "inventory.consume",
+      targetKind: "inventory",
+      targetId: entityId,
+      targetLabel: entity ? `${entity.displayId} ${entity.name}` : undefined,
+      diff: { used: `${amount} ${row.unit}`, remaining: `${row.quantity} ${row.unit}` },
+    },
+    tx
+  );
 
-  return { quantity: row.quantity, unit: row.unit };
+  return {
+    entityId,
+    name: entity?.name ?? "",
+    quantity: row.quantity,
+    unit: row.unit,
+  };
 }
 
 /** Most recent stock movements across the lab, for the usage feed. */

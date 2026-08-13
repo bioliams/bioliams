@@ -1,5 +1,6 @@
 import { requireOrg } from "@/lib/tenant";
 import { listAudit } from "@/lib/services/audit";
+import { summariseAudit } from "@/lib/audit-summary";
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ export default async function AuditPage() {
               <TableHead>Who</TableHead>
               <TableHead>Action</TableHead>
               <TableHead>Target</TableHead>
+              <TableHead>Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -41,11 +43,14 @@ export default async function AuditPage() {
                 <TableCell>{actorName ?? "API key"}</TableCell>
                 <TableCell className="font-mono text-xs">{entry.action}</TableCell>
                 <TableCell>{entry.targetLabel ?? entry.targetId}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {summariseAudit(entry.action, entry.diff) || "—"}
+                </TableCell>
               </TableRow>
             ))}
             {entries.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
                   Nothing recorded yet.
                 </TableCell>
               </TableRow>

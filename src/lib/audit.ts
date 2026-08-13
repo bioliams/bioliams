@@ -14,7 +14,8 @@ interface AuditEntry {
     | "api_key"
     | "attachment"
     | "member"
-    | "purchase";
+    | "purchase"
+    | "project";
   targetId: string;
   targetLabel?: string;
   diff?: Record<string, unknown>;

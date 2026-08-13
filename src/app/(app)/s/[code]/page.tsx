@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { entities, entityTypes } from "@/db/schema";
 import { requireOrg } from "@/lib/tenant";
+import { projectScope } from "@/lib/services/projects";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -17,6 +18,10 @@ export default async function ScanPage({ params }: { params: Promise<{ code: str
   const { code } = await params;
   const ctx = await requireOrg();
 
+  // A label for a record outside the scanner's projects resolves to nothing,
+  // the same as a label from another lab.
+  const scope = projectScope(ctx.projectIds);
+
   const [match] = await db
     .select({ displayId: entities.displayId, slug: entityTypes.slug })
     .from(entities)
@@ -25,7 +30,8 @@ export default async function ScanPage({ params }: { params: Promise<{ code: str
       and(
         eq(entities.organizationId, ctx.orgId),
         eq(entities.displayId, decodeURIComponent(code).trim().toUpperCase()),
-        isNull(entities.deletedAt)
+        isNull(entities.deletedAt),
+        ...(scope ? [scope] : [])
       )
     )
     .limit(1);

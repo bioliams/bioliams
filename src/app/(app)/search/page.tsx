@@ -23,7 +23,7 @@ export default async function SearchPage({
   const ctx = await requireOrg();
   const query = (q ?? "").trim();
   const { rows } = query
-    ? await listEntities(ctx.orgId, { search: query, limit: 200 })
+    ? await listEntities(ctx.orgId, { search: query, limit: 200, projectIds: ctx.projectIds })
     : { rows: [] };
 
   return (

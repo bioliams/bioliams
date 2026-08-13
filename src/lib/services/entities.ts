@@ -6,6 +6,7 @@ import type { FieldDef } from "@/db/schema/lims";
 import { logAudit } from "@/lib/audit";
 import { validateEntityData } from "@/lib/entity-schema";
 import { ServiceError } from "@/lib/service-error";
+import { projectScope } from "./projects";
 
 export { ServiceError } from "@/lib/service-error";
 
@@ -123,7 +124,14 @@ export async function createEntity(
   return outerTx ? run(outerTx) : db.transaction(run);
 }
 
-export async function getEntity(orgId: string, idOrDisplayId: string) {
+export async function getEntity(
+  orgId: string,
+  idOrDisplayId: string,
+  /** Same restriction as the list: a record outside it must not be reachable by
+   *  typing its ID into the address bar. */
+  projectIds: string[] = []
+) {
+  const scope = projectScope(projectIds);
   const rows = await db
     .select()
     .from(entities)
@@ -131,7 +139,8 @@ export async function getEntity(orgId: string, idOrDisplayId: string) {
       and(
         eq(entities.organizationId, orgId),
         isNull(entities.deletedAt),
-        or(eq(entities.id, idOrDisplayId), eq(entities.displayId, idOrDisplayId))
+        or(eq(entities.id, idOrDisplayId), eq(entities.displayId, idOrDisplayId)),
+        ...(scope ? [scope] : [])
       )
     )
     .limit(1);
@@ -150,6 +159,8 @@ export interface ListEntitiesOptions {
    *  or the key of a custom field. */
   sort?: string;
   dir?: "asc" | "desc";
+  /** Restrict to these projects (plus unfiled records). Empty = no restriction. */
+  projectIds?: string[];
 }
 
 /**
@@ -195,6 +206,8 @@ export async function listEntities(orgId: string, opts: ListEntitiesOptions = {}
     conditions.push(eq(entities.entityTypeId, type.id));
     fields = type.fields;
   }
+  const scope = projectScope(opts.projectIds ?? []);
+  if (scope) conditions.push(scope);
   if (opts.status) conditions.push(eq(entities.status, opts.status));
   if (opts.locationId) conditions.push(eq(entities.locationId, opts.locationId));
   if (opts.search) {

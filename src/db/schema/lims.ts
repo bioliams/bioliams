@@ -96,6 +96,8 @@ export const entities = pgTable(
     positionRow: integer("position_row"),
     positionCol: integer("position_col"),
     parentId: text("parent_id"),
+    /** Which stream of work this belongs to; null means lab-wide. */
+    projectId: text("project_id"),
     /** Who has this off the shelf right now, if anyone. */
     checkedOutBy: text("checked_out_by").references(() => user.id),
     checkedOutAt: timestamp("checked_out_at"),
@@ -109,6 +111,7 @@ export const entities = pgTable(
     index("entities_org_type_idx").on(t.organizationId, t.entityTypeId),
     index("entities_location_idx").on(t.locationId),
     index("entities_parent_idx").on(t.parentId),
+    index("entities_project_idx").on(t.projectId),
   ]
 );
 
@@ -170,6 +173,47 @@ export const inventoryEvents = pgTable(
   (t) => [
     index("inventory_events_org_created_idx").on(t.organizationId, t.createdAt),
     index("inventory_events_entity_idx").on(t.entityId),
+  ]
+);
+
+/**
+ * A stream of work — a grant, a collaboration, a thesis chapter.
+ *
+ * Projects exist to *restrict* visibility, so the rule is deliberately blunt:
+ * a member with no project assignments sees the whole lab, and a member with
+ * one or more sees only those projects. That way adding projects doesn't
+ * quietly hide records from everyone who hasn't been assigned yet.
+ */
+export const projects = pgTable(
+  "projects",
+  {
+    id: id(),
+    organizationId: orgId(),
+    name: text("name").notNull(),
+    description: text("description"),
+    archivedAt: timestamp("archived_at"),
+    createdBy: text("created_by").references(() => user.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("projects_org_idx").on(t.organizationId)]
+);
+
+export const projectMembers = pgTable(
+  "project_members",
+  {
+    id: id(),
+    organizationId: orgId(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("project_members_unique_idx").on(t.projectId, t.userId),
+    index("project_members_user_idx").on(t.userId),
   ]
 );
 

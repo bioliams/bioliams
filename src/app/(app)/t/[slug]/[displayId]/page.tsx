@@ -9,6 +9,7 @@ import { listLocations, getLocationPath } from "@/lib/services/locations";
 import { listAttachments } from "@/lib/services/attachments";
 import { listAudit } from "@/lib/services/audit";
 import { getInventoryForEntity } from "@/lib/services/inventory";
+import { listProjects } from "@/lib/services/projects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,15 +31,16 @@ export default async function EntityDetailPage({
 
   const [type, entity] = await Promise.all([
     getEntityTypeBySlug(ctx.orgId, slug).catch(notFoundOn404),
-    getEntity(ctx.orgId, displayId).catch(notFoundOn404),
+    getEntity(ctx.orgId, displayId, ctx.projectIds).catch(notFoundOn404),
   ]);
 
-  const [children, locations, files, history, inventory] = await Promise.all([
+  const [children, locations, files, history, inventory, projects] = await Promise.all([
     getChildren(ctx.orgId, entity.id),
     listLocations(ctx.orgId),
     listAttachments(ctx.orgId, entity.id),
     listAudit(ctx.orgId, { targetId: entity.id, limit: 50 }),
     getInventoryForEntity(ctx.orgId, entity.id),
+    listProjects(ctx.orgId),
   ]);
 
   const labelSvg = await qrSvg(entity.displayId, 112);
@@ -200,6 +202,8 @@ export default async function EntityDetailPage({
             since: entity.checkedOutAt ? entity.checkedOutAt.toLocaleString() : null,
           }}
           canWrite={can(ctx.role, "records:write")}
+          projects={projects.map((p) => ({ id: p.project.id, name: p.project.name }))}
+          projectId={entity.projectId}
         />
 
         <Card>

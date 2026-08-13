@@ -39,6 +39,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       links: [
         { href: "/settings/types", label: "Record types" },
         { href: "/settings/members", label: "Members" },
+        { href: "/settings/projects", label: "Projects" },
         { href: "/settings/api-keys", label: "API keys" },
         { href: "/settings/audit", label: "Audit log" },
       ],
@@ -89,6 +90,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </p>
             <NavLink href="/settings/types">Record types</NavLink>
             <NavLink href="/settings/members">Members</NavLink>
+            <NavLink href="/settings/projects">Projects</NavLink>
             <NavLink href="/settings/api-keys">API keys</NavLink>
             <NavLink href="/settings/audit">Audit log</NavLink>
           </div>

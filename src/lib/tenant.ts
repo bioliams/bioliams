@@ -5,12 +5,15 @@ import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { member } from "@/db/schema";
+import { visibleProjectIds } from "@/lib/services/projects";
 
 export interface OrgContext {
   userId: string;
   userName: string;
   orgId: string;
   role: string;
+  /** Projects this member is confined to; empty means the whole lab. */
+  projectIds: string[];
 }
 
 export async function getSession() {
@@ -51,5 +54,6 @@ export async function requireOrg(): Promise<OrgContext> {
     userName: session.user.name,
     orgId,
     role: membership[0].role,
+    projectIds: await visibleProjectIds(orgId, session.user.id),
   };
 }

@@ -22,6 +22,7 @@ import {
   returnStockAction,
   transferAction,
 } from "./stock-actions";
+import { setEntityProjectAction } from "@/app/(app)/settings/projects/actions";
 
 type Mode = "discard" | "return" | "transfer" | null;
 
@@ -39,6 +40,8 @@ export function StockPanel({
   currentLocationId,
   custody,
   canWrite,
+  projects,
+  projectId,
 }: {
   entityId: string;
   slug: string;
@@ -48,6 +51,8 @@ export function StockPanel({
   currentLocationId: string | null;
   custody: { holderName: string | null; isMine: boolean; since: string | null };
   canWrite: boolean;
+  projects: { id: string; name: string }[];
+  projectId: string | null;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(null);
@@ -110,6 +115,37 @@ export function StockPanel({
                 {custody.isMine ? "You have this" : `${custody.holderName} has this`}
                 {custody.since ? ` since ${custody.since}` : ""}
               </span>
+            </div>
+          )}
+
+          {projects.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Project</span>
+              <select
+                value={projectId ?? ""}
+                disabled={!canWrite || pending}
+                aria-label="Project"
+                className="h-8 rounded-md border bg-background px-2 text-sm"
+                onChange={(e) =>
+                  run(
+                    () =>
+                      setEntityProjectAction(
+                        entityId,
+                        slug,
+                        displayId,
+                        e.target.value || null
+                      ),
+                    "Project updated"
+                  )
+                }
+              >
+                <option value="">Not filed under a project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

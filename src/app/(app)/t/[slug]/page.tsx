@@ -38,6 +38,7 @@ export default async function RegistryPage({
       locationId,
       sort,
       dir: direction,
+      projectIds: ctx.projectIds,
       limit: PAGE_SIZE,
       offset: (pageNumber - 1) * PAGE_SIZE,
     }),

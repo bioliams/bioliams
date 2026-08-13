@@ -56,6 +56,20 @@ describe("summariseAudit", () => {
     ).toBe("Split into 8 aliquots of 1 vials · 4 vials left");
   });
 
+  it("keeps the reason on a discard, since that is the point of recording it", () => {
+    expect(
+      summariseAudit("inventory.discard", {
+        amount: "2 vials",
+        remaining: "4 vials",
+        reason: "thawed overnight",
+      })
+    ).toBe("2 vials · 4 vials left · reason: thawed overnight");
+  });
+
+  it("shows where a transfer went", () => {
+    expect(summariseAudit("entity.transfer", { moved: "Box 1 → Box 3" })).toBe("Box 1 → Box 3");
+  });
+
   it("returns nothing for an entry with no diff", () => {
     expect(summariseAudit("entity.delete", null)).toBe("");
   });

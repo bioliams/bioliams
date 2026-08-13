@@ -1,7 +1,14 @@
 import "server-only";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db, type Tx } from "@/db";
-import { inventoryItems, inventoryEvents, entities, entityTypes, user } from "@/db/schema";
+import {
+  inventoryItems,
+  inventoryEvents,
+  entities,
+  entityTypes,
+  locations,
+  user,
+} from "@/db/schema";
 import { logAudit } from "@/lib/audit";
 import { createEntity, ServiceError } from "./entities";
 
@@ -221,6 +228,277 @@ async function consumeOne(
     quantity: row.quantity,
     unit: row.unit,
   };
+}
+
+/**
+ * Stock that leaves without being used: expired, contaminated, dropped.
+ *
+ * Kept apart from consumption because the two answer different questions —
+ * "how fast do we get through Q5" should not include the vial that thawed.
+ */
+export async function discardInventory(
+  orgId: string,
+  actorId: string | null,
+  entityId: string,
+  amount: string,
+  reason: string
+) {
+  if (!reason.trim()) {
+    throw new ServiceError("Why is it being discarded?", 400, {
+      reason: "Give a reason — an unexplained loss teaches nobody",
+    });
+  }
+  return moveStock(orgId, actorId, entityId, `-${amount}`, "discard", reason);
+}
+
+/** Unused stock coming back to the shelf after a check-out or an over-draw. */
+export async function returnInventory(
+  orgId: string,
+  actorId: string | null,
+  entityId: string,
+  amount: string,
+  note?: string
+) {
+  return moveStock(orgId, actorId, entityId, amount, "return", note ?? null);
+}
+
+/**
+ * Shared body for signed stock movements.
+ *
+ * `signed` is applied in Postgres, and the guard only bites when it would take
+ * the level below zero — so returns and receipts can't be refused for being
+ * "too much", while discards obey the same floor consumption does.
+ */
+async function moveStock(
+  orgId: string,
+  actorId: string | null,
+  entityId: string,
+  signed: string,
+  kind: "discard" | "return",
+  note: string | null
+) {
+  const magnitude = Math.abs(Number(signed));
+  if (!Number.isFinite(magnitude) || magnitude <= 0) {
+    throw new ServiceError("Enter an amount greater than zero", 400, {
+      amount: "Enter an amount greater than zero",
+    });
+  }
+
+  const [row] = await db
+    .update(inventoryItems)
+    .set({
+      quantity: sql`${inventoryItems.quantity} + ${signed}::numeric`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(inventoryItems.organizationId, orgId),
+        eq(inventoryItems.entityId, entityId),
+        sql`${inventoryItems.quantity} + ${signed}::numeric >= 0`
+      )
+    )
+    .returning();
+
+  const [entity] = await db
+    .select({ displayId: entities.displayId, name: entities.name })
+    .from(entities)
+    .where(and(eq(entities.organizationId, orgId), eq(entities.id, entityId)))
+    .limit(1);
+
+  if (!row) {
+    const existing = await getInventoryForEntity(orgId, entityId);
+    if (!existing) throw new ServiceError("This record does not track inventory", 404);
+    throw new ServiceError(
+      `Only ${existing.quantity} ${existing.unit} of ${entity?.name ?? "this item"} left`,
+      400,
+      { amount: `Only ${existing.quantity} ${existing.unit} available` }
+    );
+  }
+
+  await db.insert(inventoryEvents).values({
+    organizationId: orgId,
+    entityId,
+    kind,
+    delta: sql`${signed}::numeric`,
+    quantityAfter: row.quantity,
+    unit: row.unit,
+    note,
+    actorId,
+  });
+
+  await logAudit({
+    orgId,
+    actorId,
+    action: `inventory.${kind}`,
+    targetKind: "inventory",
+    targetId: entityId,
+    targetLabel: entity ? `${entity.displayId} ${entity.name}` : undefined,
+    diff: {
+      amount: `${Math.abs(Number(signed))} ${row.unit}`,
+      remaining: `${row.quantity} ${row.unit}`,
+      ...(note ? { reason: note } : {}),
+    },
+  });
+
+  return { quantity: row.quantity, unit: row.unit };
+}
+
+/**
+ * Move a record to another place, as a movement rather than a silent edit.
+ *
+ * Editing the location field already worked; what it couldn't do is tell you
+ * later that the box moved between freezers on a Tuesday, which is exactly what
+ * you want when a sample turns up somewhere unexpected.
+ */
+export async function transferEntity(
+  orgId: string,
+  actorId: string | null,
+  entityId: string,
+  toLocationId: string | null,
+  note?: string
+) {
+  const [current] = await db
+    .select({
+      id: entities.id,
+      displayId: entities.displayId,
+      name: entities.name,
+      locationId: entities.locationId,
+    })
+    .from(entities)
+    .where(
+      and(
+        eq(entities.organizationId, orgId),
+        eq(entities.id, entityId),
+        isNull(entities.deletedAt)
+      )
+    )
+    .limit(1);
+  if (!current) throw new ServiceError("Record not found", 404);
+
+  const names = await db
+    .select({ id: locations.id, name: locations.name })
+    .from(locations)
+    .where(eq(locations.organizationId, orgId));
+  const label = (id: string | null) =>
+    id ? (names.find((l) => l.id === id)?.name ?? "elsewhere") : "no location";
+
+  if (toLocationId && !names.some((l) => l.id === toLocationId)) {
+    throw new ServiceError("That location is not in this lab", 404);
+  }
+
+  await db
+    .update(entities)
+    .set({
+      locationId: toLocationId,
+      // A new box means the old grid position is meaningless.
+      positionRow: null,
+      positionCol: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(entities.organizationId, orgId), eq(entities.id, entityId)));
+
+  const movement = `${label(current.locationId)} → ${label(toLocationId)}`;
+  const stock = await getInventoryForEntity(orgId, entityId);
+  if (stock) {
+    await db.insert(inventoryEvents).values({
+      organizationId: orgId,
+      entityId,
+      kind: "transfer",
+      delta: "0", // nothing was used; it is the same stock somewhere else
+      quantityAfter: stock.quantity,
+      unit: stock.unit,
+      note: note ? `${movement} — ${note}` : movement,
+      actorId,
+    });
+  }
+
+  await logAudit({
+    orgId,
+    actorId,
+    action: "entity.transfer",
+    targetKind: "entity",
+    targetId: entityId,
+    targetLabel: `${current.displayId} ${current.name}`,
+    diff: { moved: movement, ...(note ? { note } : {}) },
+  });
+
+  return { movement };
+}
+
+/**
+ * Take a record off the shelf, or put it back.
+ *
+ * A tube on someone's bench is not lost, but it is not in the freezer either,
+ * and "who has it" is the question that gets asked at 5pm.
+ */
+export async function setCustody(
+  orgId: string,
+  actorId: string | null,
+  entityId: string,
+  action: "checkout" | "checkin",
+  note?: string
+) {
+  const [current] = await db
+    .select({
+      displayId: entities.displayId,
+      name: entities.name,
+      checkedOutBy: entities.checkedOutBy,
+    })
+    .from(entities)
+    .where(
+      and(
+        eq(entities.organizationId, orgId),
+        eq(entities.id, entityId),
+        isNull(entities.deletedAt)
+      )
+    )
+    .limit(1);
+  if (!current) throw new ServiceError("Record not found", 404);
+
+  if (action === "checkout" && current.checkedOutBy && current.checkedOutBy !== actorId) {
+    const [holder] = await db
+      .select({ name: user.name })
+      .from(user)
+      .where(eq(user.id, current.checkedOutBy))
+      .limit(1);
+    throw new ServiceError(
+      `${holder?.name ?? "Someone else"} has this out already — ask them to check it back in`,
+      400
+    );
+  }
+
+  await db
+    .update(entities)
+    .set({
+      checkedOutBy: action === "checkout" ? actorId : null,
+      checkedOutAt: action === "checkout" ? new Date() : null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(entities.organizationId, orgId), eq(entities.id, entityId)));
+
+  const stock = await getInventoryForEntity(orgId, entityId);
+  if (stock) {
+    await db.insert(inventoryEvents).values({
+      organizationId: orgId,
+      entityId,
+      kind: action,
+      delta: "0",
+      quantityAfter: stock.quantity,
+      unit: stock.unit,
+      note: note ?? null,
+      actorId,
+    });
+  }
+
+  await logAudit({
+    orgId,
+    actorId,
+    action: `entity.${action}`,
+    targetKind: "entity",
+    targetId: entityId,
+    targetLabel: `${current.displayId} ${current.name}`,
+    diff: note ? { note } : undefined,
+  });
 }
 
 export interface AliquotGroup {

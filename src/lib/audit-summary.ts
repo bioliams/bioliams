@@ -64,6 +64,19 @@ export function summariseAudit(action: string, diff: Diff): string {
       const remaining = show(diff.remaining);
       return `Used ${used} · ${remaining} left`;
     }
+    case "inventory.discard":
+    case "inventory.return": {
+      const parts = [`${show(diff.amount)}`, `${show(diff.remaining)} left`];
+      if (diff.reason) parts.push(`reason: ${show(diff.reason)}`);
+      return parts.join(" · ");
+    }
+    case "entity.transfer": {
+      return diff.note ? `${show(diff.moved)} · ${show(diff.note)}` : `${show(diff.moved)}`;
+    }
+    case "entity.checkout":
+      return diff.note ? `Taken out — ${show(diff.note)}` : "Taken out";
+    case "entity.checkin":
+      return "Brought back";
     case "inventory.update": {
       const before = isRecord(diff.before) ? diff.before : {};
       const after = isRecord(diff.after) ? diff.after : {};

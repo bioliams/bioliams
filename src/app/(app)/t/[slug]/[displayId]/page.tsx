@@ -2,7 +2,7 @@ import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { notFoundOn404 } from "@/lib/not-found";
 import { db } from "@/db";
-import { entities } from "@/db/schema";
+import { entities, user } from "@/db/schema";
 import { requireOrg } from "@/lib/tenant";
 import { getEntityTypeBySlug, getEntity, getChildren } from "@/lib/services/entities";
 import { listLocations, getLocationPath } from "@/lib/services/locations";
@@ -13,10 +13,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { qrSvg } from "@/lib/barcode";
+import { can } from "@/lib/permissions";
 import { formatFieldValue } from "@/lib/format-field";
 import { summariseAudit } from "@/lib/audit-summary";
 import { EntityDetailActions } from "./detail-actions";
 import { AttachmentsPanel } from "./attachments-panel";
+import { StockPanel } from "./stock-panel";
 
 export default async function EntityDetailPage({
   params,
@@ -40,6 +42,16 @@ export default async function EntityDetailPage({
   ]);
 
   const labelSvg = await qrSvg(entity.displayId, 112);
+
+  let holderName: string | null = null;
+  if (entity.checkedOutBy) {
+    const [holder] = await db
+      .select({ name: user.name })
+      .from(user)
+      .where(eq(user.id, entity.checkedOutBy))
+      .limit(1);
+    holderName = holder?.name ?? "Someone";
+  }
 
   const locationPath = entity.locationId
     ? await getLocationPath(ctx.orgId, entity.locationId)
@@ -175,6 +187,21 @@ export default async function EntityDetailPage({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <StockPanel
+          entityId={entity.id}
+          slug={slug}
+          displayId={entity.displayId}
+          stock={inventory ? { quantity: inventory.quantity, unit: inventory.unit } : null}
+          locations={locations.map((l) => ({ id: l.id, name: l.name, kind: l.kind }))}
+          currentLocationId={entity.locationId}
+          custody={{
+            holderName,
+            isMine: entity.checkedOutBy === ctx.userId,
+            since: entity.checkedOutAt ? entity.checkedOutAt.toLocaleString() : null,
+          }}
+          canWrite={can(ctx.role, "records:write")}
+        />
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Label</CardTitle>

@@ -96,6 +96,9 @@ export const entities = pgTable(
     positionRow: integer("position_row"),
     positionCol: integer("position_col"),
     parentId: text("parent_id"),
+    /** Who has this off the shelf right now, if anyone. */
+    checkedOutBy: text("checked_out_by").references(() => user.id),
+    checkedOutAt: timestamp("checked_out_at"),
     createdBy: text("created_by").references(() => user.id),
     deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -143,8 +146,22 @@ export const inventoryEvents = pgTable(
     entityId: text("entity_id")
       .notNull()
       .references(() => entities.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ["consume", "receive", "adjust", "split"] }).notNull(),
+    kind: text("kind", {
+      enum: [
+        "consume",
+        "receive",
+        "adjust",
+        "split",
+        "discard",
+        "return",
+        "transfer",
+        "checkout",
+        "checkin",
+      ],
+    }).notNull(),
     delta: numeric("delta").notNull(), // signed: negative for consumption
+    /** Why, or where it went — a discarded vial without a reason teaches nobody. */
+    note: text("note"),
     quantityAfter: numeric("quantity_after").notNull(),
     unit: text("unit").notNull(),
     actorId: text("actor_id").references(() => user.id),

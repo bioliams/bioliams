@@ -177,6 +177,41 @@ export const savedViews = pgTable(
   (t) => [index("saved_views_org_type_idx").on(t.organizationId, t.typeSlug)]
 );
 
+/**
+ * "We're nearly out of Q5" through to it being on the shelf.
+ *
+ * Kept separate from inventory rather than as a pending quantity: a request is
+ * a decision with a person and a date attached, and it stays interesting after
+ * the stock arrives — which is exactly what a bare quantity can never tell you.
+ */
+export const purchaseRequests = pgTable(
+  "purchase_requests",
+  {
+    id: id(),
+    organizationId: orgId(),
+    itemName: text("item_name").notNull(),
+    vendor: text("vendor"),
+    catalogNumber: text("catalog_number"),
+    quantity: numeric("quantity").notNull().default("1"),
+    unit: text("unit").notNull().default("units"),
+    estimatedCost: numeric("estimated_cost"),
+    currency: text("currency").notNull().default("USD"),
+    notes: text("notes"),
+    status: text("status", {
+      enum: ["requested", "approved", "ordered", "received", "rejected"],
+    })
+      .notNull()
+      .default("requested"),
+    /** Set once received, so the arrival can top up the stock it belongs to. */
+    entityId: text("entity_id").references(() => entities.id, { onDelete: "set null" }),
+    requestedBy: text("requested_by").references(() => user.id),
+    decidedBy: text("decided_by").references(() => user.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("purchase_requests_org_status_idx").on(t.organizationId, t.status)]
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {

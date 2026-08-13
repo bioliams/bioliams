@@ -27,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/locations", label: "Storage" },
         { href: "/inventory", label: "Inventory" },
         { href: "/inventory/use", label: "Use stock" },
+        { href: "/purchasing", label: "Purchasing" },
       ],
     },
     {
@@ -61,6 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               Inventory
             </NavLink>
             <NavLink href="/inventory/use">Use stock</NavLink>
+            <NavLink href="/purchasing">Purchasing</NavLink>
           </div>
 
           <div className="space-y-1">

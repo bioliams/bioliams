@@ -43,3 +43,7 @@ next-env.d.ts
 # BioLIMS
 !.env.example
 /uploads
+
+# Personal photos used for the project site, not app assets
+Iaroslava.jpg
+pouria.jpeg

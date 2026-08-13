@@ -32,3 +32,5 @@ if (process.env.NODE_ENV !== "production" || process.env.VERCEL) {
 
 export const db = drizzle(client, { schema });
 export type Db = typeof db;
+/** Either the pool or an open transaction, so services can compose. */
+export type Tx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];

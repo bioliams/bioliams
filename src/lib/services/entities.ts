@@ -1,6 +1,6 @@
 import "server-only";
 import { and, eq, isNull, desc, sql, ilike, or } from "drizzle-orm";
-import { db } from "@/db";
+import { db, type Tx } from "@/db";
 import { entities, entityTypes, locations, inventoryItems } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
 import { validateEntityData } from "@/lib/entity-schema";
@@ -34,7 +34,7 @@ export async function getEntityTypeBySlug(orgId: string, slug: string) {
  * concurrent registrations can't collide on the counter.
  */
 async function nextDisplayId(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: Tx,
   orgId: string,
   entityTypeId: string
 ) {
@@ -67,14 +67,16 @@ export interface CreateEntityInput {
 export async function createEntity(
   orgId: string,
   actorId: string | null,
-  input: CreateEntityInput
+  input: CreateEntityInput,
+  /** Join a caller's transaction — used by splits, which create many at once. */
+  outerTx?: Tx
 ) {
   const type = await getEntityTypeBySlug(orgId, input.typeSlug);
   const { data, errors } = validateEntityData(type.fields, input.data ?? {});
   if (errors) throw new ServiceError("Validation failed", 400, errors);
   if (!input.name?.trim()) throw new ServiceError("Validation failed", 400, { name: "Name is required" });
 
-  return db.transaction(async (tx) => {
+  const run = async (tx: Tx) => {
     const displayId = await nextDisplayId(tx, orgId, type.id);
     const [row] = await tx
       .insert(entities)
@@ -118,7 +120,9 @@ export async function createEntity(
       tx
     );
     return row;
-  });
+  };
+
+  return outerTx ? run(outerTx) : db.transaction(run);
 }
 
 export async function getEntity(orgId: string, idOrDisplayId: string) {

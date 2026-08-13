@@ -81,6 +81,7 @@ export default async function EntityDetailPage({
             locationId: entity.locationId,
           }}
           locations={locations.map((l) => ({ id: l.id, name: l.name, kind: l.kind }))}
+          stock={inventory ? { quantity: inventory.quantity, unit: inventory.unit } : null}
         />
       </div>
 

@@ -50,6 +50,12 @@ describe("summariseAudit", () => {
     expect(summariseAudit("entity.update", before && { before, after })).toContain("+2 more");
   });
 
+  it("describes a split by aliquot count and what the parent has left", () => {
+    expect(
+      summariseAudit("entity.split", { aliquots: 8, each: "1 vials", remaining: "4 vials" })
+    ).toBe("Split into 8 aliquots of 1 vials · 4 vials left");
+  });
+
   it("returns nothing for an entry with no diff", () => {
     expect(summariseAudit("entity.delete", null)).toBe("");
   });

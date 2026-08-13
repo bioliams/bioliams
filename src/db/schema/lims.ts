@@ -143,7 +143,7 @@ export const inventoryEvents = pgTable(
     entityId: text("entity_id")
       .notNull()
       .references(() => entities.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ["consume", "receive", "adjust"] }).notNull(),
+    kind: text("kind", { enum: ["consume", "receive", "adjust", "split"] }).notNull(),
     delta: numeric("delta").notNull(), // signed: negative for consumption
     quantityAfter: numeric("quantity_after").notNull(),
     unit: text("unit").notNull(),

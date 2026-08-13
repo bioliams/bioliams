@@ -70,6 +70,11 @@ export function summariseAudit(action: string, diff: Diff): string {
       if (before.quantity === after.quantity) return "";
       return `Quantity ${show(before.quantity)} ${show(before.unit)} → ${show(after.quantity)} ${show(after.unit)}`;
     }
+    case "entity.split": {
+      const parts = [`Split into ${show(diff.aliquots)} aliquots of ${show(diff.each)}`];
+      if (diff.remaining !== undefined) parts.push(`${show(diff.remaining)} left`);
+      return parts.join(" · ");
+    }
     case "entity.create": {
       const after = flatten(diff.after);
       const fields = Object.entries(after)

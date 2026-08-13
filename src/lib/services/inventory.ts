@@ -1,9 +1,9 @@
 import "server-only";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { db, type Db } from "@/db";
+import { db, type Tx } from "@/db";
 import { inventoryItems, inventoryEvents, entities, entityTypes, user } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
-import { ServiceError } from "./entities";
+import { createEntity, ServiceError } from "./entities";
 
 export async function listInventory(orgId: string) {
   return db
@@ -140,8 +140,6 @@ export async function consumeInventoryMany(
   );
 }
 
-type Tx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
-
 async function consumeOne(
   tx: Tx,
   orgId: string,
@@ -223,6 +221,168 @@ async function consumeOne(
     quantity: row.quantity,
     unit: row.unit,
   };
+}
+
+export interface AliquotGroup {
+  /** How many vials go to this destination. */
+  count: number;
+  locationId: string | null;
+}
+
+/**
+ * Split a stock record into individually tracked aliquots.
+ *
+ * Each vial becomes its own record — its own display ID, its own location, its
+ * own remaining volume — linked back to the parent through the existing lineage
+ * field. That is what lets eight vials of Proteinase K sit in three different
+ * freezers and still be one traceable batch, and it is the only model where a
+ * barcode can mean a *particular* vial rather than "some of this reagent".
+ *
+ * Non-inventory parents (a blood draw split into aliquots) work too: there is
+ * no stock to deduct, so only the child records are created.
+ */
+export async function splitIntoAliquots(
+  orgId: string,
+  actorId: string | null,
+  parentId: string,
+  input: { amountEach: string; groups: AliquotGroup[] }
+) {
+  const groups = input.groups.filter((g) => g.count > 0);
+  const total = groups.reduce((sum, g) => sum + g.count, 0);
+  if (total === 0) throw new ServiceError("Choose how many aliquots to make", 400, {
+    count: "Enter at least one aliquot",
+  });
+  if (!groups.every((g) => Number.isInteger(g.count))) {
+    throw new ServiceError("Aliquot counts must be whole numbers", 400, {
+      count: "Use whole numbers",
+    });
+  }
+  const each = Number(input.amountEach);
+  if (!input.amountEach.trim() || !Number.isFinite(each) || each <= 0) {
+    throw new ServiceError("Enter how much goes into each aliquot", 400, {
+      amountEach: "Enter an amount greater than zero",
+    });
+  }
+
+  return db.transaction(async (tx) => {
+    const [parent] = await tx
+      .select({
+        id: entities.id,
+        name: entities.name,
+        displayId: entities.displayId,
+        data: entities.data,
+        typeSlug: entityTypes.slug,
+      })
+      .from(entities)
+      .innerJoin(entityTypes, eq(entities.entityTypeId, entityTypes.id))
+      .where(
+        and(
+          eq(entities.organizationId, orgId),
+          eq(entities.id, parentId),
+          isNull(entities.deletedAt)
+        )
+      )
+      .limit(1);
+    if (!parent) throw new ServiceError("Record not found", 404);
+
+    const [stock] = await tx
+      .select()
+      .from(inventoryItems)
+      .where(and(eq(inventoryItems.organizationId, orgId), eq(inventoryItems.entityId, parentId)))
+      .limit(1);
+
+    let remaining: string | null = null;
+    const unit = stock?.unit ?? "units";
+
+    if (stock) {
+      // Same guarded decrement as consumption: the split can't overdraw the
+      // parent, and two people splitting at once can't both win.
+      const [updated] = await tx
+        .update(inventoryItems)
+        .set({
+          quantity: sql`${inventoryItems.quantity} - (${input.amountEach}::numeric * ${total})`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(inventoryItems.organizationId, orgId),
+            eq(inventoryItems.entityId, parentId),
+            sql`${inventoryItems.quantity} >= (${input.amountEach}::numeric * ${total})`
+          )
+        )
+        .returning();
+
+      if (!updated) {
+        throw new ServiceError(
+          `${total} × ${input.amountEach} ${stock.unit} is more than the ${stock.quantity} ${stock.unit} left of ${parent.name}`,
+          400,
+          { amountEach: `Only ${stock.quantity} ${stock.unit} available` }
+        );
+      }
+      remaining = updated.quantity;
+
+      await tx.insert(inventoryEvents).values({
+        organizationId: orgId,
+        entityId: parentId,
+        kind: "split",
+        delta: sql`-(${input.amountEach}::numeric * ${total})`,
+        quantityAfter: updated.quantity,
+        unit: updated.unit,
+        actorId,
+      });
+    }
+
+    // Continue the numbering rather than restarting it, so a second split of
+    // the same batch doesn't produce a second "vial 1".
+    const [{ existing }] = await tx
+      .select({ existing: sql<number>`count(*)::int` })
+      .from(entities)
+      .where(and(eq(entities.organizationId, orgId), eq(entities.parentId, parentId)));
+
+    const created = [];
+    let n = existing;
+    for (const group of groups) {
+      for (let i = 0; i < group.count; i++) {
+        n += 1;
+        const child = await createEntity(
+          orgId,
+          actorId,
+          {
+            typeSlug: parent.typeSlug,
+            name: `${parent.name} vial ${n}`,
+            data: parent.data,
+            parentId,
+            locationId: group.locationId,
+            quantity: input.amountEach,
+            unit,
+            lot: stock?.lot ?? null,
+            expiresAt: stock?.expiresAt ?? null,
+          },
+          tx
+        );
+        created.push(child);
+      }
+    }
+
+    await logAudit(
+      {
+        orgId,
+        actorId,
+        action: "entity.split",
+        targetKind: "entity",
+        targetId: parentId,
+        targetLabel: `${parent.displayId} ${parent.name}`,
+        diff: {
+          aliquots: total,
+          each: `${input.amountEach} ${unit}`,
+          remaining: remaining === null ? undefined : `${remaining} ${unit}`,
+        },
+      },
+      tx
+    );
+
+    return { created: created.length, remaining, unit };
+  });
 }
 
 /** Most recent stock movements across the lab, for the usage feed. */

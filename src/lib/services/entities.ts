@@ -1,7 +1,8 @@
 import "server-only";
-import { and, eq, isNull, desc, sql, ilike, or } from "drizzle-orm";
+import { and, asc, eq, isNull, desc, sql, ilike, or } from "drizzle-orm";
 import { db, type Tx } from "@/db";
 import { entities, entityTypes, locations, inventoryItems } from "@/db/schema";
+import type { FieldDef } from "@/db/schema/lims";
 import { logAudit } from "@/lib/audit";
 import { validateEntityData } from "@/lib/entity-schema";
 import { ServiceError } from "@/lib/service-error";
@@ -145,13 +146,54 @@ export interface ListEntitiesOptions {
   locationId?: string;
   limit?: number;
   offset?: number;
+  /** A built-in column ("name", "status", "location", "displayId", "createdAt")
+   *  or the key of a custom field. */
+  sort?: string;
+  dir?: "asc" | "desc";
+}
+
+/**
+ * Turn a sort key into SQL.
+ *
+ * Custom fields live in jsonb, where everything is text — so a number field has
+ * to be cast, or 9 sorts above 10 and the column is worse than useless.
+ * Anything unparseable sorts last rather than erroring the query.
+ */
+function orderExpression(sort: string | undefined, fields: FieldDef[]) {
+  switch (sort) {
+    case undefined:
+    case "":
+    case "createdAt":
+      return entities.createdAt;
+    case "displayId":
+      // Display IDs are zero-padded to a fixed width, so text order is numeric order.
+      return entities.displayId;
+    case "name":
+      return entities.name;
+    case "status":
+      return entities.status;
+    case "location":
+      return locations.name;
+    default: {
+      const field = fields.find((f) => f.key === sort);
+      if (!field) return entities.createdAt;
+      const value = sql`${entities.data}->>${sort}`;
+      return field.type === "number"
+        ? sql`NULLIF(${value}, '')::numeric`
+        : field.type === "date"
+          ? sql`NULLIF(${value}, '')::timestamp`
+          : value;
+    }
+  }
 }
 
 export async function listEntities(orgId: string, opts: ListEntitiesOptions = {}) {
   const conditions = [eq(entities.organizationId, orgId), isNull(entities.deletedAt)];
+  let fields: FieldDef[] = [];
   if (opts.typeSlug) {
     const type = await getEntityTypeBySlug(orgId, opts.typeSlug);
     conditions.push(eq(entities.entityTypeId, type.id));
+    fields = type.fields;
   }
   if (opts.status) conditions.push(eq(entities.status, opts.status));
   if (opts.locationId) conditions.push(eq(entities.locationId, opts.locationId));
@@ -168,20 +210,37 @@ export async function listEntities(orgId: string, opts: ListEntitiesOptions = {}
     );
   }
 
-  return db
-    .select({
-      entity: entities,
-      typeName: entityTypes.name,
-      typeSlug: entityTypes.slug,
-      locationName: locations.name,
-    })
-    .from(entities)
-    .innerJoin(entityTypes, eq(entities.entityTypeId, entityTypes.id))
-    .leftJoin(locations, eq(entities.locationId, locations.id))
-    .where(and(...conditions))
-    .orderBy(desc(entities.createdAt))
-    .limit(Math.min(opts.limit ?? 100, 500))
-    .offset(opts.offset ?? 0);
+  const order = orderExpression(opts.sort, fields);
+  const direction = opts.dir === "asc" ? asc : desc;
+
+  const [rows, [counted]] = await Promise.all([
+    db
+      .select({
+        entity: entities,
+        typeName: entityTypes.name,
+        typeSlug: entityTypes.slug,
+        locationName: locations.name,
+      })
+      .from(entities)
+      .innerJoin(entityTypes, eq(entities.entityTypeId, entityTypes.id))
+      .leftJoin(locations, eq(entities.locationId, locations.id))
+      .where(and(...conditions))
+      // NULLS LAST in both directions: an empty cell is not a value, and it
+      // should never win a "highest concentration" sort by being absent.
+      .orderBy(sql`${direction(order)} NULLS LAST`, desc(entities.createdAt))
+      .limit(Math.min(opts.limit ?? 100, 500))
+      .offset(opts.offset ?? 0),
+    // The count uses the same predicates, so pagination reports the real total
+    // rather than the size of the page.
+    db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(entities)
+      .innerJoin(entityTypes, eq(entities.entityTypeId, entityTypes.id))
+      .leftJoin(locations, eq(entities.locationId, locations.id))
+      .where(and(...conditions)),
+  ]);
+
+  return { rows, total: counted?.total ?? 0 };
 }
 
 export interface UpdateEntityInput {

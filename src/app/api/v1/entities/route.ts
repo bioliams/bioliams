@@ -4,16 +4,19 @@ import { listEntities, createEntity } from "@/lib/services/entities";
 
 export const GET = withApiAuth(async (req, ctx) => {
   const url = new URL(req.url);
-  const rows = await listEntities(ctx.orgId, {
+  const { rows, total } = await listEntities(ctx.orgId, {
     typeSlug: url.searchParams.get("type") ?? undefined,
     search: url.searchParams.get("q") ?? undefined,
     status: url.searchParams.get("status") ?? undefined,
     locationId: url.searchParams.get("location_id") ?? undefined,
     limit: Number(url.searchParams.get("limit") ?? 100),
     offset: Number(url.searchParams.get("offset") ?? 0),
+    sort: url.searchParams.get("sort") ?? undefined,
+    dir: url.searchParams.get("dir") === "asc" ? "asc" : "desc",
   });
 
   return NextResponse.json({
+    total,
     data: rows.map(({ entity, typeSlug, locationName }) => ({
       id: entity.id,
       display_id: entity.displayId,

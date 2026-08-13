@@ -20,6 +20,8 @@ import { EntityDialog } from "@/components/entity-dialog";
 import { CsvImportDialog } from "@/components/csv-import-dialog";
 import { formatFieldValue } from "@/lib/format-field";
 import { saveViewAction, deleteViewAction } from "./view-actions";
+import { exportEntitiesAction } from "./export-action";
+import { PAGE_SIZE } from "@/lib/pagination";
 
 function SortHeader({
   label,
@@ -84,6 +86,8 @@ export interface SavedView {
 export function RegistryView({
   type,
   rows,
+  total,
+  page,
   locations,
   views,
   filters,
@@ -91,20 +95,24 @@ export function RegistryView({
 }: {
   type: RegistryType;
   rows: RegistryRow[];
+  total: number;
+  page: number;
   locations: LocationOption[];
   views: SavedView[];
-  filters: { q: string; status: string; locationId: string };
+  filters: { q: string; status: string; locationId: string; sort: string; dir: "asc" | "desc" };
   canWrite: boolean;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState(filters.q);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({
-    key: "displayId",
-    dir: "desc",
-  });
-  const [, startTransition] = useTransition();
+  const [exporting, setExporting] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  // Sorting and paging live in the URL and are applied by the database, so a
+  // sorted registry is the whole registry — not whichever rows happen to be on
+  // screen — and the view is linkable and savable.
+  const sort = { key: filters.sort || "createdAt", dir: filters.dir };
 
   // Only the first four custom fields get their own column; the rest live on the detail page.
   const columns = useMemo(() => type.fields.slice(0, 4), [type.fields]);
@@ -114,8 +122,9 @@ export function RegistryView({
       ...(search ? { q: search } : {}),
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.locationId ? { locationId: filters.locationId } : {}),
+      ...(filters.sort ? { sort: filters.sort, dir: filters.dir } : {}),
     }),
-    [search, filters.status, filters.locationId]
+    [search, filters.status, filters.locationId, filters.sort, filters.dir]
   );
 
   function navigate(next: Record<string, string>) {
@@ -127,51 +136,20 @@ export function RegistryView({
 
   function applySearch(value: string) {
     setSearch(value);
-    navigate({ ...query, q: value });
+    // Any change to the filters puts you back on page one; staying on page 7 of
+    // a different result set shows an empty table.
+    navigate({ ...query, q: value, page: "" });
   }
 
-  /** Sorting is client-side over the loaded page, so a click reorders instantly. */
-  const sorted = useMemo(() => {
-    const cell = (row: RegistryRow, key: string): unknown => {
-      switch (key) {
-        case "displayId":
-          return row.displayId;
-        case "name":
-          return row.name;
-        case "status":
-          return row.status;
-        case "location":
-          return row.locationName ?? "";
-        default:
-          return row.data[key];
-      }
-    };
-    const factor = sort.dir === "asc" ? 1 : -1;
-    return [...rows].sort((a, b) => {
-      const av = cell(a, sort.key);
-      const bv = cell(b, sort.key);
-      // Empty cells sink to the bottom either way — a blank is not a value.
-      if (av === null || av === undefined || av === "") return 1;
-      if (bv === null || bv === undefined || bv === "") return -1;
-      const an = Number(av);
-      const bn = Number(bv);
-      if (!Number.isNaN(an) && !Number.isNaN(bn) && av !== "" && bv !== "") {
-        return (an - bn) * factor;
-      }
-      return String(av).localeCompare(String(bv), undefined, { numeric: true }) * factor;
-    });
-  }, [rows, sort]);
-
   function toggleSort(key: string) {
-    setSort((prev) =>
-      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }
-    );
+    const dir = sort.key === key && sort.dir === "asc" ? "desc" : "asc";
+    navigate({ ...query, sort: key, dir, page: "" });
   }
 
   async function saveCurrentView() {
     const name = window.prompt("Name this view (shared with the whole lab)");
     if (!name?.trim()) return;
-    const result = await saveViewAction(type.slug, name, { ...query, sort: `${sort.key}:${sort.dir}` });
+    const result = await saveViewAction(type.slug, name, query);
     if (result.error) {
       toast.error(result.error);
       return;
@@ -181,13 +159,8 @@ export function RegistryView({
   }
 
   function applyView(view: SavedView) {
-    const { sort: savedSort, ...params } = view.query;
-    if (savedSort) {
-      const [key, dir] = savedSort.split(":");
-      setSort({ key, dir: dir === "asc" ? "asc" : "desc" });
-    }
-    setSearch(params.q ?? "");
-    navigate(params);
+    setSearch(view.query.q ?? "");
+    navigate({ ...view.query, page: "" });
   }
 
   async function removeView(view: SavedView) {
@@ -208,26 +181,49 @@ export function RegistryView({
     return Array.isArray(v) ? v.join("|") : String(v);
   }
 
-  async function exportExcel() {
-    const { toXlsxBlob, downloadBlob } = await import("@/lib/spreadsheet");
-    const blob = await toXlsxBlob(
-      type.name,
-      exportHeaders,
-      sorted.map((r) => [
-        r.displayId,
-        r.name,
-        r.status,
-        r.locationName ?? "",
-        ...type.fields.map((f) => exportCell(r, f)),
-      ])
-    );
-    downloadBlob(blob, `${type.slug}-export.xlsx`);
-    toast.success(`Exported ${sorted.length} record(s) to Excel`);
+  /** Always exports every matching record, not just the page on screen. */
+  async function fetchAllRows() {
+    const result = await exportEntitiesAction(type.slug, {
+      q: filters.q,
+      status: filters.status,
+      locationId: filters.locationId,
+      sort: filters.sort,
+      dir: filters.dir,
+    });
+    if (result.truncated) {
+      toast.warning(`Exporting the first ${result.rows.length} of ${result.total} records`);
+    }
+    return result.rows as RegistryRow[];
   }
 
-  function exportCsv() {
+  async function exportExcel() {
+    setExporting(true);
+    try {
+      const all = await fetchAllRows();
+      const { toXlsxBlob, downloadBlob } = await import("@/lib/spreadsheet");
+      const blob = await toXlsxBlob(
+        type.name,
+        exportHeaders,
+        all.map((r) => [
+          r.displayId,
+          r.name,
+          r.status,
+          r.locationName ?? "",
+          ...type.fields.map((f) => exportCell(r, f)),
+        ])
+      );
+      downloadBlob(blob, `${type.slug}-export.xlsx`);
+      toast.success(`Exported ${all.length} record(s) to Excel`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function exportCsv() {
+    setExporting(true);
+    const all = await fetchAllRows();
     const headers = exportHeaders;
-    const lines = sorted.map((r) =>
+    const lines = all.map((r) =>
       [
         r.displayId,
         r.name,
@@ -251,7 +247,8 @@ export function RegistryView({
     a.download = `${type.slug}-export.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(`Exported ${rows.length} record(s)`);
+    setExporting(false);
+    toast.success(`Exported ${all.length} record(s)`);
   }
 
   return (
@@ -265,7 +262,11 @@ export function RegistryView({
             />
             {type.name}
           </h1>
-          <p className="text-sm text-muted-foreground">{rows.length} record(s)</p>
+          <p className="text-sm text-muted-foreground">
+            {total === 0
+              ? "No records"
+              : `${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rows.length} of ${total} record${total === 1 ? "" : "s"}`}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canWrite && (
@@ -273,10 +274,10 @@ export function RegistryView({
               Import
             </Button>
           )}
-          <Button variant="outline" onClick={exportExcel} disabled={rows.length === 0}>
+          <Button variant="outline" onClick={exportExcel} disabled={rows.length === 0 || exporting}>
             Export Excel
           </Button>
-          <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
+          <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0 || exporting}>
             CSV
           </Button>
           <Button variant="outline" onClick={() => window.print()} disabled={rows.length === 0}>
@@ -369,7 +370,7 @@ export function RegistryView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map((row) => (
+            {rows.map((row) => (
               <TableRow key={row.id}>
                 <TableCell className="font-mono text-xs">
                   <Link href={`/t/${type.slug}/${row.displayId}`} className="hover:underline">
@@ -405,6 +406,32 @@ export function RegistryView({
           </TableBody>
         </Table>
       </div>
+
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between gap-3 print:hidden">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {Math.ceil(total / PAGE_SIZE)}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1 || pending}
+              onClick={() => navigate({ ...query, page: String(page - 1) })}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= Math.ceil(total / PAGE_SIZE) || pending}
+              onClick={() => navigate({ ...query, page: String(page + 1) })}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       <EntityDialog
         open={dialogOpen}

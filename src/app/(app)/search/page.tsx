@@ -22,7 +22,9 @@ export default async function SearchPage({
   const { q } = await searchParams;
   const ctx = await requireOrg();
   const query = (q ?? "").trim();
-  const rows = query ? await listEntities(ctx.orgId, { search: query, limit: 200 }) : [];
+  const { rows } = query
+    ? await listEntities(ctx.orgId, { search: query, limit: 200 })
+    : { rows: [] };
 
   return (
     <div className="space-y-4">

@@ -4,8 +4,11 @@ import { listEntityTypes } from "@/lib/services/entities";
 import { db } from "@/db";
 import { organization } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { ScanLine } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
 import { NavLink } from "@/components/nav-link";
+import { MobileNav, type NavSection } from "@/components/mobile-nav";
+import { Button } from "@/components/ui/button";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrg();
@@ -14,6 +17,31 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     db.select().from(organization).where(eq(organization.id, ctx.orgId)),
     listEntityTypes(ctx.orgId),
   ]);
+
+  const navSections: NavSection[] = [
+    {
+      links: [
+        { href: "/", label: "Dashboard" },
+        { href: "/scan", label: "Scan a label" },
+        { href: "/locations", label: "Storage" },
+        { href: "/inventory", label: "Inventory" },
+        { href: "/inventory/use", label: "Use stock" },
+      ],
+    },
+    {
+      label: "Registries",
+      links: types.map((t) => ({ href: `/t/${t.slug}`, label: t.name, color: t.color })),
+    },
+    {
+      label: "Settings",
+      links: [
+        { href: "/settings/types", label: "Record types" },
+        { href: "/settings/members", label: "Members" },
+        { href: "/settings/api-keys", label: "API keys" },
+        { href: "/settings/audit", label: "Audit log" },
+      ],
+    },
+  ];
 
   return (
     <div className="flex min-h-screen">
@@ -26,6 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <nav className="flex-1 space-y-6 overflow-y-auto p-3 text-sm">
           <div className="space-y-1">
             <NavLink href="/">Dashboard</NavLink>
+            <NavLink href="/scan">Scan a label</NavLink>
             <NavLink href="/locations">Storage</NavLink>
             <NavLink href="/inventory" exact>
               Inventory
@@ -64,9 +93,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b px-4 md:px-6 print:hidden">
-          <span className="truncate text-sm font-medium">{org?.name ?? "Lab"}</span>
-          <UserMenu name={ctx.userName} role={ctx.role} />
+        <header className="flex h-14 items-center justify-between gap-2 border-b px-4 md:px-6 print:hidden">
+          <div className="flex min-w-0 items-center gap-1">
+            <MobileNav sections={navSections} />
+            <span className="truncate text-sm font-medium">{org?.name ?? "Lab"}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" asChild aria-label="Scan a label">
+              <Link href="/scan">
+                <ScanLine className="size-5" />
+              </Link>
+            </Button>
+            <UserMenu name={ctx.userName} role={ctx.role} />
+          </div>
         </header>
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>

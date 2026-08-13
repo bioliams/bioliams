@@ -21,6 +21,7 @@ export interface UsableItem {
   unit: string;
   minThreshold: string | null;
   lot: string | null;
+  locationName: string | null;
 }
 
 export interface UsageEntry {
@@ -62,7 +63,7 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
     const q = query.trim().toLowerCase();
     if (!q) return items;
     return items.filter((i) =>
-      [i.name, i.displayId, i.typeName, i.lot ?? ""].some((field) =>
+      [i.name, i.displayId, i.typeName, i.lot ?? "", i.locationName ?? ""].some((field) =>
         field.toLowerCase().includes(q)
       )
     );
@@ -134,7 +135,7 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
           if (!(matches[0].entityId in basket)) toggle(matches[0]);
           setQuery("");
         }}
-        placeholder="Search or scan a label — name, ID, type or lot…"
+        placeholder="Search or scan — name, ID, freezer, type or lot…"
         className="max-w-md"
       />
 
@@ -176,6 +177,9 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
                       {" · "}
                       {item.typeName}
                       {item.lot ? ` · lot ${item.lot}` : ""}
+                    </p>
+                    <p className="truncate text-xs font-medium text-primary">
+                      {item.locationName ?? "No location"}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">

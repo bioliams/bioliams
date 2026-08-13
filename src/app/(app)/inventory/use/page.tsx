@@ -11,7 +11,7 @@ export default async function UseStockPage() {
 
   return (
     <UseStockView
-      items={rows.map(({ item, entity, typeName, typeSlug }) => ({
+      items={rows.map(({ item, entity, typeName, typeSlug, locationName }) => ({
         entityId: entity.id,
         displayId: entity.displayId,
         name: entity.name,
@@ -21,6 +21,7 @@ export default async function UseStockPage() {
         unit: item.unit,
         minThreshold: item.minThreshold,
         lot: item.lot,
+        locationName,
       }))}
       usage={usage.map(({ event, entityName, displayId, actorName }) => ({
         id: event.id,

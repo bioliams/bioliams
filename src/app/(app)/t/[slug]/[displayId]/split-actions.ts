@@ -9,7 +9,7 @@ import { type ActionResult, actionError } from "@/lib/action-result";
 export async function splitEntityAction(
   entityId: string,
   slug: string,
-  input: { amountEach: string; groups: AliquotGroup[] }
+  input: { groups: AliquotGroup[] }
 ): Promise<ActionResult<{ created: number; remaining: string | null; unit: string }>> {
   const ctx = await requireOrg();
   try {

@@ -19,10 +19,12 @@ export async function listInventory(orgId: string) {
       entity: entities,
       typeName: entityTypes.name,
       typeSlug: entityTypes.slug,
+      locationName: locations.name,
     })
     .from(inventoryItems)
     .innerJoin(entities, eq(inventoryItems.entityId, entities.id))
     .innerJoin(entityTypes, eq(entities.entityTypeId, entityTypes.id))
+    .leftJoin(locations, eq(entities.locationId, locations.id))
     .where(and(eq(inventoryItems.organizationId, orgId), isNull(entities.deletedAt)))
     .orderBy(entities.name);
 }
@@ -504,6 +506,9 @@ export async function setCustody(
 export interface AliquotGroup {
   /** How many vials go to this destination. */
   count: number;
+  /** How much in each vial at this destination — portions need not be equal:
+   *  300 mL can go to one freezer and 200 mL to another. */
+  amountEach: string;
   locationId: string | null;
 }
 
@@ -523,11 +528,11 @@ export async function splitIntoAliquots(
   orgId: string,
   actorId: string | null,
   parentId: string,
-  input: { amountEach: string; groups: AliquotGroup[] }
+  input: { groups: AliquotGroup[] }
 ) {
   const groups = input.groups.filter((g) => g.count > 0);
-  const total = groups.reduce((sum, g) => sum + g.count, 0);
-  if (total === 0) throw new ServiceError("Choose how many aliquots to make", 400, {
+  const totalVials = groups.reduce((sum, g) => sum + g.count, 0);
+  if (totalVials === 0) throw new ServiceError("Choose how many aliquots to make", 400, {
     count: "Enter at least one aliquot",
   });
   if (!groups.every((g) => Number.isInteger(g.count))) {
@@ -535,12 +540,17 @@ export async function splitIntoAliquots(
       count: "Use whole numbers",
     });
   }
-  const each = Number(input.amountEach);
-  if (!input.amountEach.trim() || !Number.isFinite(each) || each <= 0) {
-    throw new ServiceError("Enter how much goes into each aliquot", 400, {
-      amountEach: "Enter an amount greater than zero",
-    });
+  for (const g of groups) {
+    const each = Number(g.amountEach);
+    if (!g.amountEach.trim() || !Number.isFinite(each) || each <= 0) {
+      throw new ServiceError("Enter how much goes into each aliquot", 400, {
+        amountEach: "Enter an amount greater than zero",
+      });
+    }
   }
+  // Sum in string-safe steps: portions may be fractional, so keep one total
+  // computed once and reused for both the guard and the event.
+  const totalAmount = groups.reduce((sum, g) => sum + g.count * Number(g.amountEach), 0);
 
   return db.transaction(async (tx) => {
     const [parent] = await tx
@@ -578,21 +588,21 @@ export async function splitIntoAliquots(
       const [updated] = await tx
         .update(inventoryItems)
         .set({
-          quantity: sql`${inventoryItems.quantity} - (${input.amountEach}::numeric * ${total})`,
+          quantity: sql`${inventoryItems.quantity} - ${totalAmount}::numeric`,
           updatedAt: new Date(),
         })
         .where(
           and(
             eq(inventoryItems.organizationId, orgId),
             eq(inventoryItems.entityId, parentId),
-            sql`${inventoryItems.quantity} >= (${input.amountEach}::numeric * ${total})`
+            sql`${inventoryItems.quantity} >= ${totalAmount}::numeric`
           )
         )
         .returning();
 
       if (!updated) {
         throw new ServiceError(
-          `${total} × ${input.amountEach} ${stock.unit} is more than the ${stock.quantity} ${stock.unit} left of ${parent.name}`,
+          `${totalAmount} ${stock.unit} across ${totalVials} aliquots is more than the ${stock.quantity} ${stock.unit} left of ${parent.name}`,
           400,
           { amountEach: `Only ${stock.quantity} ${stock.unit} available` }
         );
@@ -603,7 +613,7 @@ export async function splitIntoAliquots(
         organizationId: orgId,
         entityId: parentId,
         kind: "split",
-        delta: sql`-(${input.amountEach}::numeric * ${total})`,
+        delta: sql`-${totalAmount}::numeric`,
         quantityAfter: updated.quantity,
         unit: updated.unit,
         actorId,
@@ -631,7 +641,7 @@ export async function splitIntoAliquots(
             data: parent.data,
             parentId,
             locationId: group.locationId,
-            quantity: input.amountEach,
+            quantity: group.amountEach,
             unit,
             lot: stock?.lot ?? null,
             expiresAt: stock?.expiresAt ?? null,
@@ -651,8 +661,8 @@ export async function splitIntoAliquots(
         targetId: parentId,
         targetLabel: `${parent.displayId} ${parent.name}`,
         diff: {
-          aliquots: total,
-          each: `${input.amountEach} ${unit}`,
+          aliquots: totalVials,
+          each: groups.map((g) => `${g.count} × ${g.amountEach} ${unit}`).join(", "),
           remaining: remaining === null ? undefined : `${remaining} ${unit}`,
         },
       },

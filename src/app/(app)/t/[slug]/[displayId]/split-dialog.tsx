@@ -27,12 +27,15 @@ const NO_LOCATION = "__none__";
 
 interface Destination {
   count: string;
+  amountEach: string;
   locationId: string;
 }
 
 /**
- * Splitting is normally "eight vials, five in one freezer and three in
- * another", so destinations are a list rather than a single location field.
+ * Splitting is normally "five vials in one freezer and three in another", so
+ * destinations are a list rather than a single location field — and each
+ * destination has its own portion size, because 300 mL to one freezer and
+ * 200 mL to another is a real way to split a bottle.
  */
 export function SplitDialog({
   open,
@@ -54,14 +57,16 @@ export function SplitDialog({
   locations: { id: string; name: string; kind: string }[];
 }) {
   const router = useRouter();
-  const [amountEach, setAmountEach] = useState("1");
   const [destinations, setDestinations] = useState<Destination[]>([
-    { count: "1", locationId: NO_LOCATION },
+    { count: "1", amountEach: "1", locationId: NO_LOCATION },
   ]);
   const [pending, startTransition] = useTransition();
 
   const totalVials = destinations.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
-  const totalAmount = totalVials * (Number(amountEach) || 0);
+  const totalAmount = destinations.reduce(
+    (sum, d) => sum + (Number(d.count) || 0) * (Number(d.amountEach) || 0),
+    0
+  );
   const overdrawn = available !== null && totalAmount > Number(available);
 
   function update(index: number, patch: Partial<Destination>) {
@@ -71,9 +76,9 @@ export function SplitDialog({
   function submit() {
     startTransition(async () => {
       const result = await splitEntityAction(entityId, slug, {
-        amountEach,
         groups: destinations.map((d) => ({
           count: Number(d.count) || 0,
+          amountEach: d.amountEach,
           locationId: d.locationId === NO_LOCATION ? null : d.locationId,
         })),
       });
@@ -87,7 +92,7 @@ export function SplitDialog({
           : undefined;
       toast.success(`Created ${result.value?.created ?? 0} aliquots`, { description: left });
       onOpenChange(false);
-      setDestinations([{ count: "1", locationId: NO_LOCATION }]);
+      setDestinations([{ count: "1", amountEach: "1", locationId: NO_LOCATION }]);
       router.refresh();
     });
   }
@@ -104,24 +109,8 @@ export function SplitDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="amount-each">Amount in each aliquot</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="amount-each"
-                type="number"
-                step="any"
-                min="0"
-                value={amountEach}
-                onChange={(e) => setAmountEach(e.target.value)}
-                className="w-32"
-              />
-              <span className="text-sm text-muted-foreground">{unit ?? "units"}</span>
-            </div>
-          </div>
-
           <div className="space-y-2">
-            <Label>Where they go</Label>
+            <Label>How much goes where</Label>
             {destinations.map((dest, i) => (
               <div key={i} className="flex items-center gap-2">
                 <Input
@@ -130,10 +119,20 @@ export function SplitDialog({
                   step="1"
                   value={dest.count}
                   onChange={(e) => update(i, { count: e.target.value })}
-                  className="w-20"
+                  className="w-16"
                   aria-label="Number of aliquots"
                 />
                 <span className="text-sm text-muted-foreground">×</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={dest.amountEach}
+                  onChange={(e) => update(i, { amountEach: e.target.value })}
+                  className="w-20"
+                  aria-label="Amount in each aliquot"
+                />
+                <span className="text-sm text-muted-foreground">{unit ?? "units"} →</span>
                 <Select
                   value={dest.locationId}
                   onValueChange={(value) => update(i, { locationId: value })}
@@ -165,7 +164,10 @@ export function SplitDialog({
               variant="outline"
               size="sm"
               onClick={() =>
-                setDestinations((prev) => [...prev, { count: "1", locationId: NO_LOCATION }])
+                setDestinations((prev) => [
+                  ...prev,
+                  { count: "1", amountEach: prev[prev.length - 1]?.amountEach ?? "1", locationId: NO_LOCATION },
+                ])
               }
             >
               Another freezer

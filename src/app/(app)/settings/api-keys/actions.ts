@@ -2,15 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/tenant";
+import { requireCan } from "@/lib/permissions";
 import { createApiKey, revokeApiKey } from "@/lib/services/api-keys";
 import { type ActionResult, actionError } from "@/lib/action-result";
 
 export async function createApiKeyAction(name: string): Promise<ActionResult<string>> {
   const ctx = await requireOrg();
-  if (ctx.role !== "owner" && ctx.role !== "admin") {
-    return { error: "Only owners and admins can create API keys" };
-  }
   try {
+    requireCan(ctx.role, "keys:manage");
     const { plaintext } = await createApiKey(ctx.orgId, ctx.userId, name);
     revalidatePath("/settings/api-keys");
     return { ok: true, value: plaintext };
@@ -21,10 +20,8 @@ export async function createApiKeyAction(name: string): Promise<ActionResult<str
 
 export async function revokeApiKeyAction(id: string): Promise<ActionResult> {
   const ctx = await requireOrg();
-  if (ctx.role !== "owner" && ctx.role !== "admin") {
-    return { error: "Only owners and admins can revoke API keys" };
-  }
   try {
+    requireCan(ctx.role, "keys:manage");
     await revokeApiKey(ctx.orgId, ctx.userId, id);
     revalidatePath("/settings/api-keys");
     return { ok: true };

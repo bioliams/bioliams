@@ -1,4 +1,4 @@
-import { ServiceError } from "@/lib/services/entities";
+import { ServiceError } from "@/lib/service-error";
 
 /**
  * Uniform return shape for server actions. A single non-union type keeps

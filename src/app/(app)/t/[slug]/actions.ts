@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/tenant";
+import { requireCan, can } from "@/lib/permissions";
 import {
   createEntity,
   updateEntity,
@@ -18,6 +19,7 @@ export async function createEntityAction(
 ): Promise<ActionResult<string>> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "records:write");
     const row = await createEntity(ctx.orgId, ctx.userId, input);
     revalidatePath(`/t/${input.typeSlug}`);
     revalidatePath("/");
@@ -34,6 +36,7 @@ export async function updateEntityAction(
 ): Promise<ActionResult<string>> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "records:write");
     const row = await updateEntity(ctx.orgId, ctx.userId, entityId, input);
     revalidatePath(`/t/${typeSlug}`);
     revalidatePath(`/t/${typeSlug}/${row.displayId}`);
@@ -50,6 +53,7 @@ export async function deleteEntityAction(
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "records:write");
     await deleteEntity(ctx.orgId, ctx.userId, entityId);
     revalidatePath(`/t/${typeSlug}`);
     revalidatePath("/");
@@ -65,6 +69,9 @@ export async function importEntitiesAction(
   rows: { name: string; data: Record<string, unknown> }[]
 ): Promise<{ created: number; failures: { row: number; message: string }[] }> {
   const ctx = await requireOrg();
+  if (!can(ctx.role, "records:write")) {
+    return { created: 0, failures: [{ row: 0, message: "Your role can't import records" }] };
+  }
   const failures: { row: number; message: string }[] = [];
   let created = 0;
 

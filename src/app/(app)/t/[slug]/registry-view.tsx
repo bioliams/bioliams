@@ -87,12 +87,14 @@ export function RegistryView({
   locations,
   views,
   filters,
+  canWrite,
 }: {
   type: RegistryType;
   rows: RegistryRow[];
   locations: LocationOption[];
   views: SavedView[];
   filters: { q: string; status: string; locationId: string };
+  canWrite: boolean;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState(filters.q);
@@ -266,9 +268,11 @@ export function RegistryView({
           <p className="text-sm text-muted-foreground">{rows.length} record(s)</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            Import
-          </Button>
+          {canWrite && (
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              Import
+            </Button>
+          )}
           <Button variant="outline" onClick={exportExcel} disabled={rows.length === 0}>
             Export Excel
           </Button>
@@ -278,7 +282,9 @@ export function RegistryView({
           <Button variant="outline" onClick={() => window.print()} disabled={rows.length === 0}>
             Print / PDF
           </Button>
-          <Button onClick={() => setDialogOpen(true)}>Register {type.name}</Button>
+          {canWrite && (
+            <Button onClick={() => setDialogOpen(true)}>Register {type.name}</Button>
+          )}
         </div>
       </div>
 

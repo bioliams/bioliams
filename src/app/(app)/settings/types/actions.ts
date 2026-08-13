@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/tenant";
+import { requireCan } from "@/lib/permissions";
 import type { FieldDef } from "@/db/schema/lims";
 import {
   createEntityType,
@@ -19,6 +20,7 @@ export async function createEntityTypeAction(input: {
 }): Promise<ActionResult<string>> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "schema:write");
     const row = await createEntityType(ctx.orgId, ctx.userId, input);
     revalidatePath("/settings/types");
     revalidatePath("/", "layout");
@@ -34,6 +36,7 @@ export async function updateEntityTypeAction(
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "schema:write");
     await updateEntityType(ctx.orgId, ctx.userId, typeId, input);
     revalidatePath("/settings/types");
     revalidatePath("/", "layout");
@@ -46,6 +49,7 @@ export async function updateEntityTypeAction(
 export async function deleteEntityTypeAction(typeId: string): Promise<ActionResult> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "schema:write");
     await deleteEntityType(ctx.orgId, ctx.userId, typeId);
     revalidatePath("/settings/types");
     revalidatePath("/", "layout");

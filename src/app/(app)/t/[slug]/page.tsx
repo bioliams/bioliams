@@ -2,6 +2,7 @@ import { requireOrg } from "@/lib/tenant";
 import { getEntityTypeBySlug, listEntities } from "@/lib/services/entities";
 import { listLocations } from "@/lib/services/locations";
 import { listViews } from "@/lib/services/views";
+import { can } from "@/lib/permissions";
 import { notFoundOn404 } from "@/lib/not-found";
 import { RegistryView } from "./registry-view";
 
@@ -47,6 +48,7 @@ export default async function RegistryPage({
       locations={locations.map((l) => ({ id: l.id, name: l.name, kind: l.kind }))}
       views={views.map((v) => ({ id: v.id, name: v.name, query: v.query }))}
       filters={{ q: q ?? "", status: status ?? "", locationId: locationId ?? "" }}
+      canWrite={can(ctx.role, "records:write")}
     />
   );
 }

@@ -12,6 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InviteForm } from "./invite-form";
+import { RoleSelect } from "./role-select";
+import { can, ROLE_DESCRIPTIONS, ROLES } from "@/lib/permissions";
 
 export default async function MembersPage() {
   const ctx = await requireOrg();
@@ -25,7 +27,7 @@ export default async function MembersPage() {
     db.select().from(invitation).where(eq(invitation.organizationId, ctx.orgId)),
   ]);
 
-  const canInvite = ctx.role === "owner" || ctx.role === "admin";
+  const canManage = can(ctx.role, "members:manage");
 
   return (
     <div className="space-y-6">
@@ -34,7 +36,16 @@ export default async function MembersPage() {
         <p className="text-sm text-muted-foreground">Everyone with access to this lab.</p>
       </div>
 
-      {canInvite && <InviteForm />}
+      <dl className="grid gap-1 rounded-md border bg-muted/30 p-3 text-xs sm:grid-cols-2">
+        {ROLES.map((r) => (
+          <div key={r} className="flex gap-2">
+            <dt className="w-20 shrink-0 font-medium">{r}</dt>
+            <dd className="text-muted-foreground">{ROLE_DESCRIPTIONS[r]}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {canManage && <InviteForm />}
 
       <div className="overflow-x-auto rounded-md border">
         <Table>
@@ -51,7 +62,11 @@ export default async function MembersPage() {
                 <TableCell>{u.name}</TableCell>
                 <TableCell className="text-muted-foreground">{u.email}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{m.role}</Badge>
+                  {canManage ? (
+                    <RoleSelect memberId={m.id} role={m.role} disabled={m.userId === ctx.userId} />
+                  ) : (
+                    <Badge variant="secondary">{m.role}</Badge>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

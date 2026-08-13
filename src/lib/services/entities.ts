@@ -4,12 +4,9 @@ import { db, type Tx } from "@/db";
 import { entities, entityTypes, locations, inventoryItems } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
 import { validateEntityData } from "@/lib/entity-schema";
+import { ServiceError } from "@/lib/service-error";
 
-export class ServiceError extends Error {
-  constructor(message: string, readonly status = 400, readonly fieldErrors?: Record<string, string>) {
-    super(message);
-  }
-}
+export { ServiceError } from "@/lib/service-error";
 
 export async function listEntityTypes(orgId: string) {
   return db

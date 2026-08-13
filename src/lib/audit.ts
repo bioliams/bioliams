@@ -6,7 +6,15 @@ interface AuditEntry {
   orgId: string;
   actorId: string | null;
   action: string; // e.g. "entity.create"
-  targetKind: "entity" | "entity_type" | "location" | "inventory" | "api_key" | "attachment";
+  targetKind:
+    | "entity"
+    | "entity_type"
+    | "location"
+    | "inventory"
+    | "api_key"
+    | "attachment"
+    | "member"
+    | "purchase";
   targetId: string;
   targetLabel?: string;
   diff?: Record<string, unknown>;

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/tenant";
+import { requireCan } from "@/lib/permissions";
 import { saveAttachment, deleteAttachment } from "@/lib/services/attachments";
 import { getEntity } from "@/lib/services/entities";
 import { type ActionResult, actionError } from "@/lib/action-result";
@@ -14,6 +15,7 @@ export async function uploadAttachmentAction(
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "records:write");
     await getEntity(ctx.orgId, entityId); // ensures the entity belongs to this org
     const file = formData.get("file");
     if (!(file instanceof File)) return { error: "No file provided" };
@@ -32,6 +34,7 @@ export async function deleteAttachmentAction(
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "records:write");
     await deleteAttachment(ctx.orgId, ctx.userId, id);
     revalidatePath(`/t/${typeSlug}/${displayId}`);
     return { ok: true };

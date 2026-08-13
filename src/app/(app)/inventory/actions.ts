@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/tenant";
+import { requireCan } from "@/lib/permissions";
 import { consumeInventoryMany, updateInventory } from "@/lib/services/inventory";
 import { type ActionResult, actionError } from "@/lib/action-result";
 
@@ -11,6 +12,7 @@ export async function updateInventoryAction(
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "records:write");
     await updateInventory(ctx.orgId, ctx.userId, entityId, input);
     revalidatePath("/inventory");
     revalidatePath("/inventory/use");
@@ -30,6 +32,7 @@ export async function consumeInventoryAction(
 ): Promise<ActionResult<{ entityId: string; name: string; quantity: string; unit: string }[]>> {
   const ctx = await requireOrg();
   try {
+    requireCan(ctx.role, "records:write");
     const value = await consumeInventoryMany(ctx.orgId, ctx.userId, entries);
     revalidatePath("/inventory/use");
     revalidatePath("/inventory");

@@ -149,28 +149,32 @@ Deploying to a server or a cloud platform instead? See **[DEPLOYMENT.md](DEPLOYM
 **v0.1 — the sample-tracking core is complete and in use.** Everything described above
 works today. It is young software: expect rough edges, and please report them.
 
-**Being built now** — the gaps labs hit in the first week:
+**Shipped since v0.1:**
 
 | | |
 |---|---|
-| 🔄 **Real inventory events** | Receive, consume, adjust, split, discard, transfer and return — recorded as events, not just an edited quantity |
-| 🏷️ **Barcodes & labels** | Barcode/QR generation, freezer label printing, phone scanning, rapid check-in and check-out |
-| 🔎 **Search, filters & saved views** | Search across every record type at once and save the views your group uses weekly |
-| 🛒 **Purchase requests** | Raise a request, track it through approval and ordering, receive it into inventory |
-| 👥 **Roles & project access** | Read-only members, storage managers, record-type admins, project-level access |
-| 📤 **Excel & PDF export** | Any view out as a formatted spreadsheet or a printable report |
+| 🔄 **Stock as events** | Consume, adjust, split and receive recorded as movements, not an overwritten number |
+| ✂️ **Aliquots** | Split a batch into individually tracked vials across several freezers |
+| 🏷️ **Barcodes & labels** | A QR on every record, printable label sheets, phone and USB scanning |
+| 📱 **Installable app** | Add to a phone home screen, scan at the bench, honest offline behaviour |
+| 🔎 **Search, sorting & saved views** | Lab-wide search including custom fields, sortable columns, shared saved views |
+| 📤 **Excel in and out** | Import .xlsx or CSV, export a real spreadsheet, print any registry to PDF |
+| 👥 **Roles** | Owner, admin, member, storage manager and read-only, enforced server-side |
+| 🛒 **Purchasing** | Request → approve → order → receive, topping up stock on arrival |
+| 💾 **Backup guide** | A restore you have actually practised — see [BACKUPS.md](BACKUPS.md) |
 
-**Planned after that:**
+**Planned next:**
 
 | | |
 |---|---|
 | 📓 **Electronic lab notebook** | Experiment write-ups linked to the samples they used |
 | ⚙️ **Workflow automation** | Multi-step protocols with task assignment and sample state |
 | 🔬 **Instrument integrations** | Turn plate reader, qPCR and sequencer output into records |
-| 🛡️ **Operations & security** | Backups with tested recovery, encryption, MFA and SSO, stable API versioning, security reporting |
+| 🛡️ **Operations & security** | Encryption, MFA and SSO, stable API versioning, security reporting |
 | ✍️ **Electronic signatures** | Reviewed-and-approved sign-off on records |
 | 📋 **Validation & compliance** | GAMP 5 pre-validation, and the controls regulated labs need for 21 CFR Part 11 and EudraLex Annex 11 |
 | 🐍 **Python client** | A proper `biolims` package for notebook users |
+| 🗂️ **Project-level access** | Scoping records to projects, so collaborators see only their own |
 
 ---
 

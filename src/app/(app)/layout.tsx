@@ -48,9 +48,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-muted/30 md:flex print:hidden">
-        <div className="flex h-14 items-center border-b px-4">
-          <Link href="/" className="font-semibold tracking-tight">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex print:hidden">
+        <div className="flex h-14 items-center border-b border-sidebar-border px-4">
+          <Link href="/" className="font-semibold tracking-tight text-white">
             🧪 BioLIMS
           </Link>
         </div>
@@ -67,7 +67,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-sidebar-foreground/50">
               Registries
             </p>
             {types.map((t) => (
@@ -80,12 +80,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </NavLink>
             ))}
             {types.length === 0 && (
-              <p className="px-3 text-xs text-muted-foreground">No record types yet.</p>
+              <p className="px-3 text-xs text-sidebar-foreground/50">No record types yet.</p>
             )}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-sidebar-foreground/50">
               Settings
             </p>
             <NavLink href="/settings/types">Record types</NavLink>
@@ -98,7 +98,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between gap-2 border-b px-4 md:px-6 print:hidden">
+        <header className="flex h-14 items-center justify-between gap-2 border-b bg-card px-4 md:px-6 print:hidden">
           <div className="flex min-w-0 items-center gap-1">
             <MobileNav sections={navSections} />
             <span className="truncate text-sm font-medium">{org?.name ?? "Lab"}</span>

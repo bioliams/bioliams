@@ -35,48 +35,65 @@ export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props)
   const [pending, setPending] = useState(false);
   const [failures, setFailures] = useState<{ row: number; message: string }[]>([]);
 
-  function handleFile(file: File) {
+  async function handleFile(file: File) {
     setPending(true);
     setFailures([]);
+
+    if (/\.xlsx?$/i.test(file.name)) {
+      try {
+        const { readXlsx } = await import("@/lib/spreadsheet");
+        await submit(await readXlsx(file));
+      } catch (err) {
+        toast.error(
+          `Could not read that spreadsheet: ${err instanceof Error ? err.message : "unknown error"}`
+        );
+        setPending(false);
+      }
+      return;
+    }
+
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
-      complete: async (parsed) => {
-        const rows = parsed.data.flatMap((raw) => {
-          const nameKey = Object.keys(raw).find((k) => k.trim().toLowerCase() === "name");
-          const name = nameKey ? raw[nameKey] : "";
-          if (!name?.trim()) return [];
-          const data: Record<string, unknown> = {};
-          for (const [header, value] of Object.entries(raw)) {
-            const field = matchField(header, fields);
-            if (!field || value === "" || value === undefined) continue;
-            data[field.key] =
-              field.type === "multiselect"
-                ? value.split("|").map((s) => s.trim()).filter(Boolean)
-                : value;
-          }
-          return [{ name: name.trim(), data }];
-        });
-
-        if (rows.length === 0) {
-          toast.error("No rows with a 'name' column found");
-          setPending(false);
-          return;
-        }
-
-        const result = await importEntitiesAction(typeSlug, rows);
-        setPending(false);
-        setFailures(result.failures);
-        if (result.created > 0) toast.success(`Imported ${result.created} record(s)`);
-        if (result.failures.length > 0) toast.error(`${result.failures.length} row(s) failed`);
-        else onOpenChange(false);
-        router.refresh();
-      },
+      complete: (parsed) => submit(parsed.data),
       error: (err) => {
-        toast.error(`Could not read CSV: ${err.message}`);
+        toast.error(`Could not read that file: ${err.message}`);
         setPending(false);
       },
     });
+  }
+
+  /** Shared by both readers: map header-keyed rows onto fields and send them. */
+  async function submit(parsed: Record<string, string>[]) {
+    const rows = parsed.flatMap((raw) => {
+      const nameKey = Object.keys(raw).find((k) => k.trim().toLowerCase() === "name");
+      const name = nameKey ? raw[nameKey] : "";
+      if (!name?.trim()) return [];
+      const data: Record<string, unknown> = {};
+      for (const [header, value] of Object.entries(raw)) {
+        const field = matchField(header, fields);
+        if (!field || value === "" || value === undefined) continue;
+        data[field.key] =
+          field.type === "multiselect"
+            ? value.split("|").map((s) => s.trim()).filter(Boolean)
+            : value;
+      }
+      return [{ name: name.trim(), data }];
+    });
+
+    if (rows.length === 0) {
+      toast.error("No rows with a 'name' column found");
+      setPending(false);
+      return;
+    }
+
+    const result = await importEntitiesAction(typeSlug, rows);
+    setPending(false);
+    setFailures(result.failures);
+    if (result.created > 0) toast.success(`Imported ${result.created} record(s)`);
+    if (result.failures.length > 0) toast.error(`${result.failures.length} row(s) failed`);
+    else onOpenChange(false);
+    router.refresh();
   }
 
   const expected = ["name", ...fields.map((f) => f.label)];
@@ -85,16 +102,17 @@ export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props)
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import CSV</DialogTitle>
+          <DialogTitle>Import records</DialogTitle>
           <DialogDescription>
-            Headers are matched to fields by label. Expected columns: {expected.join(", ")}.
+            Excel (.xlsx) or CSV. Headers are matched to fields by label, so a spreadsheet
+            you already keep usually imports as-is. Expected columns: {expected.join(", ")}.
             Multi-select values use <code>|</code> as a separator.
           </DialogDescription>
         </DialogHeader>
 
         <Input
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           disabled={pending}
           onChange={(e) => {
             const file = e.target.files?.[0];

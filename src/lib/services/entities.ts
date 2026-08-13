@@ -160,7 +160,15 @@ export async function listEntities(orgId: string, opts: ListEntitiesOptions = {}
   if (opts.locationId) conditions.push(eq(entities.locationId, opts.locationId));
   if (opts.search) {
     const q = `%${opts.search}%`;
-    conditions.push(or(ilike(entities.name, q), ilike(entities.displayId, q))!);
+    conditions.push(
+      or(
+        ilike(entities.name, q),
+        ilike(entities.displayId, q),
+        // Custom fields live in jsonb, and "find the tube with lot A12" is a
+        // question people actually ask, so search their values as text too.
+        sql`${entities.data}::text ILIKE ${q}`
+      )!
+    );
   }
 
   return db

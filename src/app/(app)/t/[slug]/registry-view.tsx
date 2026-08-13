@@ -19,6 +19,35 @@ import {
 import { EntityDialog } from "@/components/entity-dialog";
 import { CsvImportDialog } from "@/components/csv-import-dialog";
 import { formatFieldValue } from "@/lib/format-field";
+import { saveViewAction, deleteViewAction } from "./view-actions";
+
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+}: {
+  label: string;
+  sortKey: string;
+  sort: { key: string; dir: "asc" | "desc" };
+  onSort: (key: string) => void;
+}) {
+  const active = sort.key === sortKey;
+  return (
+    <TableHead>
+      <button
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-1 hover:text-foreground"
+        aria-label={`Sort by ${label}`}
+      >
+        {label}
+        <span className={active ? "" : "opacity-0 group-hover:opacity-40"}>
+          {active ? (sort.dir === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
+    </TableHead>
+  );
+}
 
 export interface RegistryRow {
   id: string;
@@ -46,38 +75,157 @@ export interface LocationOption {
   kind: string;
 }
 
+export interface SavedView {
+  id: string;
+  name: string;
+  query: Record<string, string>;
+}
+
 export function RegistryView({
   type,
   rows,
   locations,
-  initialSearch,
+  views,
+  filters,
 }: {
   type: RegistryType;
   rows: RegistryRow[];
   locations: LocationOption[];
-  initialSearch: string;
+  views: SavedView[];
+  filters: { q: string; status: string; locationId: string };
 }) {
   const router = useRouter();
-  const [search, setSearch] = useState(initialSearch);
+  const [search, setSearch] = useState(filters.q);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({
+    key: "displayId",
+    dir: "desc",
+  });
   const [, startTransition] = useTransition();
 
   // Only the first four custom fields get their own column; the rest live on the detail page.
   const columns = useMemo(() => type.fields.slice(0, 4), [type.fields]);
 
-  function applySearch(value: string) {
-    setSearch(value);
+  const query = useMemo(
+    () => ({
+      ...(search ? { q: search } : {}),
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.locationId ? { locationId: filters.locationId } : {}),
+    }),
+    [search, filters.status, filters.locationId]
+  );
+
+  function navigate(next: Record<string, string>) {
     startTransition(() => {
-      const params = new URLSearchParams();
-      if (value) params.set("q", value);
+      const params = new URLSearchParams(Object.entries(next).filter(([, v]) => v));
       router.replace(`/t/${type.slug}${params.size ? `?${params}` : ""}`);
     });
   }
 
+  function applySearch(value: string) {
+    setSearch(value);
+    navigate({ ...query, q: value });
+  }
+
+  /** Sorting is client-side over the loaded page, so a click reorders instantly. */
+  const sorted = useMemo(() => {
+    const cell = (row: RegistryRow, key: string): unknown => {
+      switch (key) {
+        case "displayId":
+          return row.displayId;
+        case "name":
+          return row.name;
+        case "status":
+          return row.status;
+        case "location":
+          return row.locationName ?? "";
+        default:
+          return row.data[key];
+      }
+    };
+    const factor = sort.dir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = cell(a, sort.key);
+      const bv = cell(b, sort.key);
+      // Empty cells sink to the bottom either way — a blank is not a value.
+      if (av === null || av === undefined || av === "") return 1;
+      if (bv === null || bv === undefined || bv === "") return -1;
+      const an = Number(av);
+      const bn = Number(bv);
+      if (!Number.isNaN(an) && !Number.isNaN(bn) && av !== "" && bv !== "") {
+        return (an - bn) * factor;
+      }
+      return String(av).localeCompare(String(bv), undefined, { numeric: true }) * factor;
+    });
+  }, [rows, sort]);
+
+  function toggleSort(key: string) {
+    setSort((prev) =>
+      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }
+    );
+  }
+
+  async function saveCurrentView() {
+    const name = window.prompt("Name this view (shared with the whole lab)");
+    if (!name?.trim()) return;
+    const result = await saveViewAction(type.slug, name, { ...query, sort: `${sort.key}:${sort.dir}` });
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`Saved “${name.trim()}”`);
+    router.refresh();
+  }
+
+  function applyView(view: SavedView) {
+    const { sort: savedSort, ...params } = view.query;
+    if (savedSort) {
+      const [key, dir] = savedSort.split(":");
+      setSort({ key, dir: dir === "asc" ? "asc" : "desc" });
+    }
+    setSearch(params.q ?? "");
+    navigate(params);
+  }
+
+  async function removeView(view: SavedView) {
+    const result = await deleteViewAction(type.slug, view.id);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("View deleted");
+    router.refresh();
+  }
+
+  const exportHeaders = ["id", "name", "status", "location", ...type.fields.map((f) => f.label)];
+
+  function exportCell(r: RegistryRow, f: FieldDef) {
+    const v = r.data[f.key];
+    if (v === null || v === undefined) return "";
+    return Array.isArray(v) ? v.join("|") : String(v);
+  }
+
+  async function exportExcel() {
+    const { toXlsxBlob, downloadBlob } = await import("@/lib/spreadsheet");
+    const blob = await toXlsxBlob(
+      type.name,
+      exportHeaders,
+      sorted.map((r) => [
+        r.displayId,
+        r.name,
+        r.status,
+        r.locationName ?? "",
+        ...type.fields.map((f) => exportCell(r, f)),
+      ])
+    );
+    downloadBlob(blob, `${type.slug}-export.xlsx`);
+    toast.success(`Exported ${sorted.length} record(s) to Excel`);
+  }
+
   function exportCsv() {
-    const headers = ["id", "name", "status", "location", ...type.fields.map((f) => f.label)];
-    const lines = rows.map((r) =>
+    const headers = exportHeaders;
+    const lines = sorted.map((r) =>
       [
         r.displayId,
         r.name,
@@ -119,37 +267,103 @@ export function RegistryView({
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setImportOpen(true)}>
-            Import CSV
+            Import
+          </Button>
+          <Button variant="outline" onClick={exportExcel} disabled={rows.length === 0}>
+            Export Excel
           </Button>
           <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
-            Export CSV
+            CSV
+          </Button>
+          <Button variant="outline" onClick={() => window.print()} disabled={rows.length === 0}>
+            Print / PDF
           </Button>
           <Button onClick={() => setDialogOpen(true)}>Register {type.name}</Button>
         </div>
       </div>
 
-      <Input
-        placeholder="Search by name or ID…"
-        value={search}
-        onChange={(e) => applySearch(e.target.value)}
-        className="max-w-xs"
-      />
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
+        <Input
+          placeholder="Search by name or ID…"
+          value={search}
+          onChange={(e) => applySearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <select
+          value={filters.status}
+          onChange={(e) => navigate({ ...query, status: e.target.value })}
+          className="h-9 rounded-md border bg-background px-2 text-sm"
+          aria-label="Filter by status"
+        >
+          <option value="">Any status</option>
+          {["active", "in-use", "depleted", "archived"].map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filters.locationId}
+          onChange={(e) => navigate({ ...query, locationId: e.target.value })}
+          className="h-9 max-w-[14rem] rounded-md border bg-background px-2 text-sm"
+          aria-label="Filter by location"
+        >
+          <option value="">Anywhere</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name} ({l.kind})
+            </option>
+          ))}
+        </select>
+        <Button variant="ghost" size="sm" onClick={saveCurrentView}>
+          Save as view
+        </Button>
+      </div>
+
+      {views.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">Views</span>
+          {views.map((view) => (
+            <span
+              key={view.id}
+              className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs"
+            >
+              <button onClick={() => applyView(view)} className="hover:underline">
+                {view.name}
+              </button>
+              <button
+                onClick={() => removeView(view)}
+                aria-label={`Delete view ${view.name}`}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Location</TableHead>
+              <SortHeader label="ID" sortKey="displayId" sort={sort} onSort={toggleSort} />
+              <SortHeader label="Name" sortKey="name" sort={sort} onSort={toggleSort} />
+              <SortHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} />
+              <SortHeader label="Location" sortKey="location" sort={sort} onSort={toggleSort} />
               {columns.map((f) => (
-                <TableHead key={f.key}>{f.label}</TableHead>
+                <SortHeader
+                  key={f.key}
+                  label={f.label}
+                  sortKey={f.key}
+                  sort={sort}
+                  onSort={toggleSort}
+                />
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => (
+            {sorted.map((row) => (
               <TableRow key={row.id}>
                 <TableCell className="font-mono text-xs">
                   <Link href={`/t/${type.slug}/${row.displayId}`} className="hover:underline">

@@ -1,6 +1,7 @@
 import { requireOrg } from "@/lib/tenant";
 import { getEntityTypeBySlug, listEntities } from "@/lib/services/entities";
 import { listLocations } from "@/lib/services/locations";
+import { listViews } from "@/lib/services/views";
 import { notFoundOn404 } from "@/lib/not-found";
 import { RegistryView } from "./registry-view";
 
@@ -9,17 +10,18 @@ export default async function RegistryPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; locationId?: string }>;
 }) {
   const { slug } = await params;
-  const { q, status } = await searchParams;
+  const { q, status, locationId } = await searchParams;
   const ctx = await requireOrg();
 
-  // listEntities resolves the slug itself, so all three can go out at once.
-  const [type, rows, locations] = await Promise.all([
+  // listEntities resolves the slug itself, so all of these can go out at once.
+  const [type, rows, locations, views] = await Promise.all([
     getEntityTypeBySlug(ctx.orgId, slug).catch(notFoundOn404),
-    listEntities(ctx.orgId, { typeSlug: slug, search: q, status, limit: 500 }),
+    listEntities(ctx.orgId, { typeSlug: slug, search: q, status, locationId, limit: 500 }),
     listLocations(ctx.orgId),
+    listViews(ctx.orgId, slug),
   ]);
 
   return (
@@ -43,7 +45,8 @@ export default async function RegistryPage({
         createdAt: r.entity.createdAt.toISOString(),
       }))}
       locations={locations.map((l) => ({ id: l.id, name: l.name, kind: l.kind }))}
-      initialSearch={q ?? ""}
+      views={views.map((v) => ({ id: v.id, name: v.name, query: v.query }))}
+      filters={{ q: q ?? "", status: status ?? "", locationId: locationId ?? "" }}
     />
   );
 }

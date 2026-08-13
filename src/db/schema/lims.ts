@@ -156,6 +156,27 @@ export const inventoryEvents = pgTable(
   ]
 );
 
+/**
+ * A named search: "my cell lines", "everything low in the -80".
+ *
+ * Saved for the whole lab rather than per person — the useful views in a lab
+ * are shared conventions, and a colleague asking "how do you find X?" should be
+ * answerable with "it's in the views list".
+ */
+export const savedViews = pgTable(
+  "saved_views",
+  {
+    id: id(),
+    organizationId: orgId(),
+    typeSlug: text("type_slug").notNull(),
+    name: text("name").notNull(),
+    query: jsonb("query").$type<Record<string, string>>().notNull().default({}),
+    createdBy: text("created_by").references(() => user.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("saved_views_org_type_idx").on(t.organizationId, t.typeSlug)]
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {

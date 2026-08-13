@@ -8,6 +8,7 @@ import { ScanLine } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
 import { NavLink } from "@/components/nav-link";
 import { MobileNav, type NavSection } from "@/components/mobile-nav";
+import { GlobalSearch } from "@/components/global-search";
 import { Button } from "@/components/ui/button";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -99,6 +100,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="truncate text-sm font-medium">{org?.name ?? "Lab"}</span>
           </div>
           <div className="flex items-center gap-1">
+            <GlobalSearch />
             <Button variant="ghost" size="icon" asChild aria-label="Scan a label">
               <Link href="/scan">
                 <ScanLine className="size-5" />

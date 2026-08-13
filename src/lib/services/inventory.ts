@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { inventoryItems, entities, entityTypes } from "@/db/schema";
+import { inventoryItems, inventoryEvents, entities, entityTypes, user } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
 import { ServiceError } from "./entities";
 
@@ -90,5 +90,113 @@ export async function updateInventory(
       after: { quantity: row.quantity, unit: row.unit },
     },
   });
+
+  // A hand-edited quantity is still a stock movement — record it so the history
+  // on an item accounts for every change, not only the ones made through "Use".
+  if (input.quantity !== undefined && row.quantity !== before.quantity) {
+    await db.insert(inventoryEvents).values({
+      organizationId: orgId,
+      entityId,
+      kind: "adjust",
+      delta: sql`${row.quantity}::numeric - ${before.quantity}::numeric`,
+      quantityAfter: row.quantity,
+      unit: row.unit,
+      actorId,
+    });
+  }
   return row;
+}
+
+/**
+ * Take stock off the shelf: decrement in one atomic statement, then record the
+ * event. The `quantity >= amount` predicate lives in the UPDATE so two people
+ * consuming the last of a reagent at the same moment can't drive it negative —
+ * whoever loses the race matches no row and gets told what's actually left.
+ */
+export async function consumeInventory(
+  orgId: string,
+  actorId: string | null,
+  entityId: string,
+  amount: string
+) {
+  const parsed = Number(amount);
+  if (!amount.trim() || !Number.isFinite(parsed) || parsed <= 0) {
+    throw new ServiceError("Enter an amount greater than zero", 400, {
+      amount: "Enter an amount greater than zero",
+    });
+  }
+
+  const [row] = await db
+    .update(inventoryItems)
+    .set({
+      // Subtract in Postgres so exact numerics stay exact; JS floats would
+      // turn 0.3 - 0.1 into 0.19999999999999998 in the stock level.
+      quantity: sql`${inventoryItems.quantity} - ${amount}::numeric`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(inventoryItems.organizationId, orgId),
+        eq(inventoryItems.entityId, entityId),
+        sql`${inventoryItems.quantity} >= ${amount}::numeric`
+      )
+    )
+    .returning();
+
+  if (!row) {
+    const existing = await getInventoryForEntity(orgId, entityId);
+    if (!existing) throw new ServiceError("This record does not track inventory", 404);
+    throw new ServiceError(
+      `Only ${existing.quantity} ${existing.unit} left — reduce the amount or record a restock`,
+      400,
+      { amount: `Only ${existing.quantity} ${existing.unit} available` }
+    );
+  }
+
+  const [entity] = await db
+    .select({ displayId: entities.displayId, name: entities.name })
+    .from(entities)
+    .where(eq(entities.id, entityId))
+    .limit(1);
+
+  await db.insert(inventoryEvents).values({
+    organizationId: orgId,
+    entityId,
+    kind: "consume",
+    delta: sql`-${amount}::numeric`,
+    quantityAfter: row.quantity,
+    unit: row.unit,
+    actorId,
+  });
+
+  await logAudit({
+    orgId,
+    actorId,
+    action: "inventory.consume",
+    targetKind: "inventory",
+    targetId: entityId,
+    targetLabel: entity ? `${entity.displayId} ${entity.name}` : undefined,
+    diff: { used: `${amount} ${row.unit}`, remaining: `${row.quantity} ${row.unit}` },
+  });
+
+  return { quantity: row.quantity, unit: row.unit };
+}
+
+/** Most recent stock movements across the lab, for the usage feed. */
+export async function listRecentUsage(orgId: string, limit = 8) {
+  return db
+    .select({
+      event: inventoryEvents,
+      entityName: entities.name,
+      displayId: entities.displayId,
+      typeSlug: entityTypes.slug,
+      actorName: user.name,
+    })
+    .from(inventoryEvents)
+    .innerJoin(entities, eq(inventoryEvents.entityId, entities.id))
+    .innerJoin(entityTypes, eq(entities.entityTypeId, entityTypes.id))
+    .leftJoin(user, eq(inventoryEvents.actorId, user.id))
+    .where(eq(inventoryEvents.organizationId, orgId))
+    .orderBy(desc(inventoryEvents.createdAt))
+    .limit(limit);
 }

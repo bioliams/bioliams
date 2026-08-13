@@ -27,7 +27,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="space-y-1">
             <NavLink href="/">Dashboard</NavLink>
             <NavLink href="/locations">Storage</NavLink>
-            <NavLink href="/inventory">Inventory</NavLink>
+            <NavLink href="/inventory" exact>
+              Inventory
+            </NavLink>
+            <NavLink href="/inventory/use">Use stock</NavLink>
           </div>
 
           <div className="space-y-1">

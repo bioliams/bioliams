@@ -4,9 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+export function NavLink({
+  href,
+  exact,
+  children,
+}: {
+  href: string;
+  /** Match this path only, so a parent doesn't light up on its sub-pages. */
+  exact?: boolean;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
-  const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const active = href === "/" || exact ? pathname === href : pathname.startsWith(href);
   return (
     <Link
       href={href}

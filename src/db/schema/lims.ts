@@ -128,6 +128,34 @@ export const inventoryItems = pgTable(
   (t) => [index("inventory_org_idx").on(t.organizationId)]
 );
 
+/**
+ * Every movement of stock, kept as an append-only history.
+ *
+ * `inventory_items.quantity` is the current level; this is how it got there.
+ * A bare quantity can answer "how much is left" but never "who used the last of
+ * it, and when" — which is the question a lab actually asks.
+ */
+export const inventoryEvents = pgTable(
+  "inventory_events",
+  {
+    id: id(),
+    organizationId: orgId(),
+    entityId: text("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["consume", "receive", "adjust"] }).notNull(),
+    delta: numeric("delta").notNull(), // signed: negative for consumption
+    quantityAfter: numeric("quantity_after").notNull(),
+    unit: text("unit").notNull(),
+    actorId: text("actor_id").references(() => user.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("inventory_events_org_created_idx").on(t.organizationId, t.createdAt),
+    index("inventory_events_entity_idx").on(t.entityId),
+  ]
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {

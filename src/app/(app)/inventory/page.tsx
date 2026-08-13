@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireOrg } from "@/lib/tenant";
 import { listInventory } from "@/lib/services/inventory";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -18,11 +19,17 @@ export default async function InventoryPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Inventory</h1>
-        <p className="text-sm text-muted-foreground">
-          Consumable stock levels. Edit a quantity inline to record usage.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Inventory</h1>
+          <p className="text-sm text-muted-foreground">
+            Consumable stock levels. Edit a quantity inline to correct it, or record what you
+            took off the shelf.
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/inventory/use">Use stock</Link>
+        </Button>
       </div>
 
       <div className="overflow-x-auto rounded-md border">

@@ -18,8 +18,8 @@ export async function listEntityTypes(orgId: string) {
     .orderBy(entityTypes.name);
 }
 
-export async function getEntityTypeBySlug(orgId: string, slug: string) {
-  const rows = await db
+export async function getEntityTypeBySlug(orgId: string, slug: string, tx: Tx = db) {
+  const rows = await tx
     .select()
     .from(entityTypes)
     .where(and(eq(entityTypes.organizationId, orgId), eq(entityTypes.slug, slug)))
@@ -70,7 +70,10 @@ export async function createEntity(
   /** Join a caller's transaction — used by splits, which create many at once. */
   outerTx?: Tx
 ) {
-  const type = await getEntityTypeBySlug(orgId, input.typeSlug);
+  // Under transaction pooling the pool is one connection wide: any query sent
+  // to the pool while a transaction holds that connection deadlocks the
+  // function against itself. Everything must ride the caller's transaction.
+  const type = await getEntityTypeBySlug(orgId, input.typeSlug, outerTx ?? db);
   const { data, errors } = validateEntityData(type.fields, input.data ?? {});
   if (errors) throw new ServiceError("Validation failed", 400, errors);
   if (!input.name?.trim()) throw new ServiceError("Validation failed", 400, { name: "Name is required" });

@@ -7,9 +7,9 @@
 Open-source sample, reagent and freezer tracking built for academic research groups —
 free for everyone in the lab, no purchase order, no vendor.
 
-**[🌐 biolims.github.io](https://bioliams.github.io)** · **[▶ Try the live demo](https://bioliams.vercel.app)**
+**[🌐 bioliams.github.io](https://bioliams.github.io)** · **[▶ Try the live demo](https://bioliams.vercel.app)** · **[🚀 Create your lab — free](https://bioliams.vercel.app/sign-up)**
 
-No signup — sign in with `demo@biolims.dev` / `biolims-demo`
+Hosted and free while in beta, or self-host with Docker. Demo: `demo@biolims.dev` / `biolims-demo`
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Self-hostable](https://img.shields.io/badge/self--hostable-yes-blue)
@@ -109,6 +109,18 @@ requests.post(
 )
 ```
 
+**✨ Ask your lab questions in plain language.** "How much Taq do we have, and where is
+it?" The built-in AI assistant reads your records through the same permission-checked
+search as every page — it can't see what you can't, and it can't change anything. Bring
+your own model: Gemini's free tier, Groq, OpenAI, or a self-hosted Ollama for labs whose
+data must not leave the building.
+
+<img src="docs/screenshots/assistant.png" alt="The lab assistant answering a stock question" width="100%">
+
+**📊 See what the lab actually uses.** Analytics charts registrations, stock used vs.
+received, the most-consumed reagents and activity by member — from the same events the
+audit log records, nothing sampled.
+
 **👥 Built for a team.** Invite colleagues, assign roles, and work in the same lab. Every
 query is scoped to your organization, so labs sharing an instance never see each other's
 data.
@@ -162,6 +174,10 @@ works today. It is young software: expect rough edges, and please report them.
 | 👥 **Roles** | Owner, admin, member, storage manager and read-only, enforced server-side |
 | 🛒 **Purchasing** | Request → approve → order → receive, topping up stock on arrival |
 | 💾 **Backup guide** | A restore you have actually practised — see [BACKUPS.md](BACKUPS.md) |
+| ✨ **AI lab assistant** | Plain-language questions over your records, bring-your-own model including free tiers |
+| 📊 **Analytics** | Registrations, consumption, top reagents and member activity over twelve weeks |
+| ⌨️ **Command palette** | ⌘K jumps to any page or record |
+| 🗂️ **Project-level access** | Collaborators scoped to their projects at every read path |
 
 **Planned next:**
 
@@ -174,7 +190,8 @@ works today. It is young software: expect rough edges, and please report them.
 | ✍️ **Electronic signatures** | Reviewed-and-approved sign-off on records |
 | 📋 **Validation & compliance** | GAMP 5 pre-validation, and the controls regulated labs need for 21 CFR Part 11 and EudraLex Annex 11 |
 | 🐍 **Python client** | A proper `biolims` package for notebook users |
-| 🗂️ **Project-level access** | Scoping records to projects, so collaborators see only their own |
+
+The full roadmap lives in [GitHub issues](https://github.com/bioliams/bioliams/issues?q=label%3Aroadmap) — comment or 👍 to shape priorities.
 
 ---
 

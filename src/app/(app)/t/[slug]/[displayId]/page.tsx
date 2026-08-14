@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { qrSvg } from "@/lib/barcode";
 import { can } from "@/lib/permissions";
 import { formatFieldValue } from "@/lib/format-field";
-import { summariseAudit } from "@/lib/audit-summary";
+import { summariseAudit, actionLabel } from "@/lib/audit-summary";
 import { EntityDetailActions } from "./detail-actions";
 import { AttachmentsPanel } from "./attachments-panel";
 import { StockPanel } from "./stock-panel";
@@ -252,7 +252,7 @@ export default async function EntityDetailPage({
                   return (
                     <li key={entry.id} className="space-y-0.5">
                       <div className="flex justify-between gap-3">
-                        <span className="font-mono text-xs">{entry.action}</span>
+                        <span className="font-medium" title={entry.action}>{actionLabel(entry.action)}</span>
                         <span className="text-xs text-muted-foreground">
                           {actorName ?? "system"} · {entry.createdAt.toLocaleString()}
                         </span>

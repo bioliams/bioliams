@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { locations, entities } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
@@ -14,6 +14,8 @@ export interface LocationNode {
   parentId: string | null;
   gridRows: number | null;
   gridCols: number | null;
+  /** Records stored directly at this location. */
+  itemCount: number;
   children: LocationNode[];
 }
 
@@ -28,6 +30,14 @@ export async function listLocations(orgId: string) {
 /** Build the storage hierarchy as a nested tree. */
 export async function getLocationTree(orgId: string): Promise<LocationNode[]> {
   const rows = await listLocations(orgId);
+  // One grouped count instead of a query per node.
+  const counts = await db
+    .select({ locationId: entities.locationId, n: sql<number>`count(*)::int` })
+    .from(entities)
+    .where(and(eq(entities.organizationId, orgId), isNull(entities.deletedAt)))
+    .groupBy(entities.locationId);
+  const countFor = new Map(counts.map((c) => [c.locationId, c.n]));
+
   const byId = new Map<string, LocationNode>();
   for (const r of rows) {
     byId.set(r.id, {
@@ -37,6 +47,7 @@ export async function getLocationTree(orgId: string): Promise<LocationNode[]> {
       parentId: r.parentId,
       gridRows: r.gridRows,
       gridCols: r.gridCols,
+      itemCount: countFor.get(r.id) ?? 0,
       children: [],
     });
   }

@@ -9,6 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Table,
   TableBody,
   TableCell,
@@ -285,15 +291,18 @@ export function RegistryView({
               Import
             </Button>
           )}
-          <Button variant="outline" onClick={exportExcel} disabled={rows.length === 0 || exporting}>
-            Export Excel
-          </Button>
-          <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0 || exporting}>
-            CSV
-          </Button>
-          <Button variant="outline" onClick={() => window.print()} disabled={rows.length === 0}>
-            Print / PDF
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={rows.length === 0 || exporting}>
+                {exporting ? "Exporting…" : "Export"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportExcel}>Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportCsv}>CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.print()}>Print / PDF</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canWrite && (
             <Button onClick={() => setDialogOpen(true)}>Register {type.name}</Button>
           )}

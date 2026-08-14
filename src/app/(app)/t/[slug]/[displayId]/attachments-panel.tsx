@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { uploadAttachmentAction, deleteAttachmentAction } from "./attachment-actions";
 
@@ -21,6 +20,7 @@ export function AttachmentsPanel({
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   async function handleUpload(file: File) {
     setPending(true);
@@ -52,8 +52,10 @@ export function AttachmentsPanel({
         <CardTitle className="text-base">Attachments</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <Input
+        <input
+          ref={fileInput}
           type="file"
+          className="hidden"
           disabled={pending}
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -61,8 +63,18 @@ export function AttachmentsPanel({
             e.target.value = "";
           }}
         />
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending}
+          onClick={() => fileInput.current?.click()}
+        >
+          {pending ? "Uploading…" : "Attach a file"}
+        </Button>
         {files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No files attached.</p>
+          <p className="text-sm text-muted-foreground">
+            Nothing attached yet — CoAs, gel images, datasheets.
+          </p>
         ) : (
           <ul className="space-y-1 text-sm">
             {files.map((f) => (

@@ -5,6 +5,7 @@ import { listLowStock } from "@/lib/services/inventory";
 import { listAudit } from "@/lib/services/audit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { actionLabel } from "@/lib/audit-summary";
 
 export default async function DashboardPage() {
   const ctx = await requireOrg();
@@ -61,9 +62,17 @@ export default async function DashboardPage() {
                     <Link href={`/t/${typeSlug}/${entity.displayId}`} className="hover:underline">
                       {entity.name}
                     </Link>
-                    <Badge variant="destructive">
-                      {item.quantity} {item.unit} left
-                    </Badge>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <Badge variant="destructive">
+                        {item.quantity} {item.unit} left
+                      </Badge>
+                      <Link
+                        href="/purchasing"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Request more
+                      </Link>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -82,11 +91,12 @@ export default async function DashboardPage() {
               <ul className="space-y-2 text-sm">
                 {recent.map(({ entry, actorName }) => (
                   <li key={entry.id} className="flex justify-between gap-3">
-                    <span className="min-w-0">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {entry.action}
-                      </span>{" "}
-                      <span className="truncate">{entry.targetLabel ?? entry.targetId}</span>
+                    <span className="min-w-0 truncate">
+                      <span className="font-medium">{actionLabel(entry.action)}</span>
+                      {" — "}
+                      <span className="text-muted-foreground">
+                        {entry.targetLabel ?? entry.targetId}
+                      </span>
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {actorName ?? "system"} · {entry.createdAt.toLocaleDateString()}

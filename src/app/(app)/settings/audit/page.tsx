@@ -1,6 +1,6 @@
 import { requireOrg } from "@/lib/tenant";
 import { listAudit } from "@/lib/services/audit";
-import { summariseAudit } from "@/lib/audit-summary";
+import { summariseAudit, actionLabel } from "@/lib/audit-summary";
 import {
   Table,
   TableBody,
@@ -41,7 +41,7 @@ export default async function AuditPage() {
                   {entry.createdAt.toLocaleString()}
                 </TableCell>
                 <TableCell>{actorName ?? "API key"}</TableCell>
-                <TableCell className="font-mono text-xs">{entry.action}</TableCell>
+                <TableCell title={entry.action}>{actionLabel(entry.action)}</TableCell>
                 <TableCell>{entry.targetLabel ?? entry.targetId}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {summariseAudit(entry.action, entry.diff) || "—"}

@@ -7,6 +7,48 @@
 
 type Diff = Record<string, unknown> | null | undefined;
 
+/** What happened, in words — "entity.split" belongs in a log file, not a UI. */
+const ACTION_LABELS: Record<string, string> = {
+  "entity.create": "Registered",
+  "entity.update": "Edited",
+  "entity.move": "Moved",
+  "entity.delete": "Archived",
+  "entity.split": "Split into aliquots",
+  "entity.transfer": "Moved",
+  "entity.checkout": "Checked out",
+  "entity.checkin": "Checked in",
+  "entity.project": "Filed under a project",
+  "inventory.update": "Stock corrected",
+  "inventory.consume": "Stock used",
+  "inventory.discard": "Stock discarded",
+  "inventory.return": "Stock returned",
+  "entity_type.create": "Record type created",
+  "entity_type.update": "Record type changed",
+  "entity_type.delete": "Record type deleted",
+  "location.create": "Location added",
+  "location.update": "Location changed",
+  "location.delete": "Location removed",
+  "member.role": "Role changed",
+  "project.create": "Project created",
+  "project.delete": "Project deleted",
+  "project.assign": "Added to project",
+  "project.unassign": "Removed from project",
+  "purchase.request": "Purchase requested",
+  "purchase.update": "Purchase edited",
+  "purchase.approved": "Purchase approved",
+  "purchase.ordered": "Purchase ordered",
+  "purchase.received": "Purchase received",
+  "purchase.rejected": "Purchase rejected",
+  "api_key.create": "API key created",
+  "api_key.revoke": "API key revoked",
+  "attachment.upload": "File attached",
+  "attachment.delete": "File removed",
+};
+
+export function actionLabel(action: string): string {
+  return ACTION_LABELS[action] ?? action;
+}
+
 const MAX_FIELDS = 4;
 
 function isRecord(value: unknown): value is Record<string, unknown> {

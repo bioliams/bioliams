@@ -5,6 +5,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { LocationNode, LocationKind } from "@/lib/services/locations";
+import {
+  Building2,
+  DoorOpen,
+  Snowflake,
+  Rows3,
+  Grid3x3,
+  Package,
+} from "lucide-react";
+
+const KIND_ICONS: Record<LocationKind, React.ComponentType<{ className?: string }>> = {
+  site: Building2,
+  room: DoorOpen,
+  freezer: Snowflake,
+  shelf: Rows3,
+  rack: Grid3x3,
+  box: Package,
+};
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -120,8 +137,10 @@ export function LocationsView({
           </Card>
         ) : (
           <Card>
-            <CardContent className="py-16 text-center text-sm text-muted-foreground">
-              Select a location to view its contents.
+            <CardContent className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted-foreground">
+              <Snowflake className="size-8 opacity-30" />
+              <p>Pick a freezer or box on the left to see what&rsquo;s inside.</p>
+              <p className="text-xs">Boxes show a grid with every occupied well.</p>
             </CardContent>
           </Card>
         )}
@@ -145,13 +164,22 @@ function TreeNode({
     <li>
       <Link
         href={`/locations?id=${node.id}`}
-        className={`block rounded px-2 py-1 hover:bg-muted ${
-          selectedId === node.id ? "bg-muted font-medium" : ""
+        className={`flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted ${
+          selectedId === node.id ? "bg-accent font-medium text-accent-foreground" : ""
         }`}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        style={{ paddingLeft: `${depth * 14 + 8}px` }}
+        title={node.kind}
       >
-        {node.name}
-        <span className="ml-1 text-xs text-muted-foreground">{node.kind}</span>
+        {(() => {
+          const Icon = KIND_ICONS[node.kind];
+          return <Icon className="size-3.5 shrink-0 text-muted-foreground" />;
+        })()}
+        <span className="min-w-0 truncate">{node.name}</span>
+        {node.itemCount > 0 && (
+          <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
+            {node.itemCount}
+          </span>
+        )}
       </Link>
       {node.children.length > 0 && (
         <ul>

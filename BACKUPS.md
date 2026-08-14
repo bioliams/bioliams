@@ -101,6 +101,16 @@ The same dump is how you migrate. Restore into the new database, set `DATABASE_U
 copy the attachments directory, and start the app. Nothing else is stored on the machine —
 which is the point of keeping everything in Postgres.
 
+## The hosted deployment
+
+The BioLIMS-run hosted instance is backed up nightly by a
+[GitHub Actions workflow](.github/workflows/backup.yml): a 02:30 UTC `pg_dump`
+whose archive is verified (`pg_restore --list` must show the core tables) and
+kept for 30 days as a workflow artifact — stored with GitHub, deliberately off
+the database provider. A failed run turns the workflow red and emails the
+maintainers. Self-hosters can copy the workflow and set `BACKUP_DATABASE_URL`
+as a repository secret to get the same.
+
 ## What is not covered yet
 
 Point-in-time recovery (replaying to the exact minute before a mistake) needs WAL

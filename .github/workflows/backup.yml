@@ -1,0 +1,52 @@
+# Nightly dump of the hosted database, kept for 30 days as workflow artifacts.
+#
+# This exists because the database currently runs on a plan with no automatic
+# backups, and BACKUPS.md's first rule is that a backup you have never taken is
+# not a backup. Artifacts live in GitHub, off the database provider entirely,
+# so losing the Supabase account does not also lose the copies.
+#
+# A failed run marks the workflow red and GitHub emails the repo owners —
+# that is the "did last night's backup actually run?" alert.
+name: Nightly database backup
+
+on:
+  schedule:
+    - cron: "30 2 * * *" # 02:30 UTC, off-peak for a European lab
+  workflow_dispatch: {} # run on demand before risky changes
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump the database
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          pg_dump "$DATABASE_URL" --format=custom --no-owner \
+            --file="biolims-$(date +%F).dump"
+          ls -la biolims-*.dump
+
+      - name: Verify the dump is restorable in structure
+        run: |
+          # pg_restore --list parses the archive's table of contents; a
+          # truncated or corrupt dump fails here rather than on restore day.
+          pg_restore --list biolims-*.dump > toc.txt
+          grep -q "TABLE DATA public entities" toc.txt
+          grep -q "TABLE DATA public audit_log" toc.txt
+          echo "TOC entries: $(wc -l < toc.txt)"
+
+      - name: Keep it for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: biolims-*.dump
+          retention-days: 30
+          compression-level: 0 # custom-format dumps are already compressed

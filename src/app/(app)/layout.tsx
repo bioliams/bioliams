@@ -9,6 +9,7 @@ import { UserMenu } from "@/components/user-menu";
 import { NavLink } from "@/components/nav-link";
 import { MobileNav, type NavSection } from "@/components/mobile-nav";
 import { GlobalSearch } from "@/components/global-search";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
 
@@ -114,6 +115,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex items-center gap-1">
             <GlobalSearch />
+            <ThemeToggle />
             <Button variant="ghost" size="icon" asChild aria-label="Scan a label">
               <Link href="/scan">
                 <ScanLine className="size-5" />

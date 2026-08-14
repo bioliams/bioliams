@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InviteForm } from "./invite-form";
+import { CopyLinkButton } from "./copy-link-button";
 import { PageHeader } from "@/components/page-header";
 import { RoleSelect } from "./role-select";
 import { can, ROLE_DESCRIPTIONS, ROLES } from "@/lib/permissions";
@@ -87,13 +88,19 @@ export default async function MembersPage() {
       {invites.filter((i) => i.status === "pending").length > 0 && (
         <div className="space-y-2">
           <h2 className="text-sm font-medium">Pending invitations</h2>
+          {!process.env.RESEND_API_KEY && (
+            <p className="text-xs text-muted-foreground">
+              No email service is connected, so nothing is sent automatically — copy the
+              link and share it with your colleague directly.
+            </p>
+          )}
           <ul className="space-y-1 text-sm text-muted-foreground">
             {invites
               .filter((i) => i.status === "pending")
               .map((i) => (
-                <li key={i.id}>
-                  {i.email} — invite link:{" "}
-                  <code className="text-xs">/accept-invite/{i.id}</code>
+                <li key={i.id} className="flex flex-wrap items-center gap-2">
+                  <span>{i.email}</span>
+                  <CopyLinkButton path={`/accept-invite/${i.id}`} />
                 </li>
               ))}
           </ul>

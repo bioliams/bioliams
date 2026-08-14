@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { aiSettings } from "@/db/schema";
 import { listEntities, getEntity } from "./entities";
-import { listLowStock, listRecentUsage } from "./inventory";
+import { getInventoryForEntity, listInventory, listLowStock, listRecentUsage } from "./inventory";
 import { getLocationPath } from "./locations";
 import { ServiceError } from "@/lib/service-error";
 
@@ -135,22 +135,33 @@ async function runTool(
         limit: 15,
         projectIds,
       });
+      // The tool promises stock levels, so deliver them.
+      const inventory = await listInventory(orgId);
+      const stockFor = new Map(
+        inventory.map(({ item, entity }) => [entity.id, `${item.quantity} ${item.unit}`])
+      );
       return rows.map(({ entity, typeName, locationName }) => ({
         displayId: entity.displayId,
         name: entity.name,
         type: typeName,
         status: entity.status,
+        stock: stockFor.get(entity.id) ?? null,
         location: locationName,
         fields: entity.data,
       }));
     }
     case "get_record": {
       const entity = await getEntity(orgId, String(args.displayId ?? ""), projectIds);
-      const path = entity.locationId ? await getLocationPath(orgId, entity.locationId) : [];
+      const [path, stock] = await Promise.all([
+        entity.locationId ? getLocationPath(orgId, entity.locationId) : Promise.resolve([]),
+        getInventoryForEntity(orgId, entity.id),
+      ]);
       return {
         displayId: entity.displayId,
         name: entity.name,
         status: entity.status,
+        stock: stock ? `${stock.quantity} ${stock.unit}` : null,
+        minThreshold: stock?.minThreshold ?? null,
         fields: entity.data,
         storagePath: path.map((l) => l.name).join(" › ") || null,
         parentId: entity.parentId,

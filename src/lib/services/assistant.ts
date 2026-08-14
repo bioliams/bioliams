@@ -217,7 +217,11 @@ export async function askAssistant(
   // showing anyone an error.
   const modelCandidates = [config.model, config.model, "gemini-flash-lite-latest"];
 
-  for (let turn = 0; turn < 6; turn++) {
+  const MAX_TURNS = 8;
+  for (let turn = 0; turn < MAX_TURNS; turn++) {
+    // On the last turn, take the tools away so the model must answer with what
+    // it has gathered rather than searching forever.
+    const finalTurn = turn === MAX_TURNS - 1;
     let res: Response | null = null;
     for (const [attempt, model] of modelCandidates.entries()) {
       res = await fetch(`${config.baseUrl}/chat/completions`, {
@@ -226,7 +230,12 @@ export async function askAssistant(
           Authorization: `Bearer ${config.apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ model, messages, tools: TOOLS, temperature: 0.2 }),
+        body: JSON.stringify({
+          model,
+          messages,
+          ...(finalTurn ? {} : { tools: TOOLS }),
+          temperature: 0.2,
+        }),
       });
       if (res.ok || res.status === 401 || res.status === 403) break;
       await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
@@ -251,7 +260,7 @@ export async function askAssistant(
     const message = data.choices?.[0]?.message;
     if (!message) throw new ServiceError("The AI provider returned an empty response", 502);
 
-    if (message.tool_calls && message.tool_calls.length > 0) {
+    if (!finalTurn && message.tool_calls && message.tool_calls.length > 0) {
       messages.push(message);
       for (const call of message.tool_calls) {
         let result: unknown;

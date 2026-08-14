@@ -17,6 +17,7 @@ import { qrSvg } from "@/lib/barcode";
 import { can } from "@/lib/permissions";
 import { formatFieldValue } from "@/lib/format-field";
 import { summariseAudit, actionLabel } from "@/lib/audit-summary";
+import { ActorChip } from "@/components/actor-chip";
 import { EntityDetailActions } from "./detail-actions";
 import { AttachmentsPanel } from "./attachments-panel";
 import { StockPanel } from "./stock-panel";
@@ -247,14 +248,15 @@ export default async function EntityDetailPage({
               <p className="text-sm text-muted-foreground">No recorded changes.</p>
             ) : (
               <ul className="space-y-2 text-sm">
-                {history.map(({ entry, actorName }) => {
+                {history.map(({ entry, actorName, actorImage }) => {
                   const details = summariseAudit(entry.action, entry.diff);
                   return (
                     <li key={entry.id} className="space-y-0.5">
                       <div className="flex justify-between gap-3">
                         <span className="font-medium" title={entry.action}>{actionLabel(entry.action)}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {actorName ?? "system"} · {entry.createdAt.toLocaleString()}
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <ActorChip name={actorName} image={actorImage} /> ·{" "}
+                          {entry.createdAt.toLocaleString()}
                         </span>
                       </div>
                       {details && <p className="text-xs text-muted-foreground">{details}</p>}

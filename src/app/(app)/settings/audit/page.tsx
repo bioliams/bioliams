@@ -2,6 +2,7 @@ import { requireOrg } from "@/lib/tenant";
 import { listAudit } from "@/lib/services/audit";
 import { summariseAudit, actionLabel } from "@/lib/audit-summary";
 import { PageHeader } from "@/components/page-header";
+import { ActorChip } from "@/components/actor-chip";
 import {
   Table,
   TableBody,
@@ -34,12 +35,14 @@ export default async function AuditPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.map(({ entry, actorName }) => (
+            {entries.map(({ entry, actorName, actorImage }) => (
               <TableRow key={entry.id}>
                 <TableCell className="whitespace-nowrap text-muted-foreground">
                   {entry.createdAt.toLocaleString()}
                 </TableCell>
-                <TableCell>{actorName ?? "API key"}</TableCell>
+                <TableCell>
+                  <ActorChip name={actorName ?? "API key"} image={actorImage} />
+                </TableCell>
                 <TableCell title={entry.action}>{actionLabel(entry.action)}</TableCell>
                 <TableCell>{entry.targetLabel ?? entry.targetId}</TableCell>
                 <TableCell className="text-muted-foreground">

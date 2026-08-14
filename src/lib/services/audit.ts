@@ -14,6 +14,7 @@ export async function listAudit(
     .select({
       entry: auditLog,
       actorName: user.name,
+      actorImage: user.image,
     })
     .from(auditLog)
     .leftJoin(user, eq(auditLog.actorId, user.id))

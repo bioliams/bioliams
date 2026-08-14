@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { actionLabel } from "@/lib/audit-summary";
 import { PageHeader } from "@/components/page-header";
+import { ActorChip } from "@/components/actor-chip";
 
 export default async function DashboardPage() {
   const ctx = await requireOrg();
@@ -90,7 +91,7 @@ export default async function DashboardPage() {
               <p className="text-sm text-muted-foreground">Nothing has happened yet.</p>
             ) : (
               <ul className="space-y-2 text-sm">
-                {recent.map(({ entry, actorName }) => (
+                {recent.map(({ entry, actorName, actorImage }) => (
                   <li key={entry.id} className="flex justify-between gap-3">
                     <span className="min-w-0 truncate">
                       <span className="font-medium">{actionLabel(entry.action)}</span>
@@ -99,8 +100,9 @@ export default async function DashboardPage() {
                         {entry.targetLabel ?? entry.targetId}
                       </span>
                     </span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {actorName ?? "system"} · {entry.createdAt.toLocaleDateString()}
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                      <ActorChip name={actorName} image={actorImage} /> ·{" "}
+                      {entry.createdAt.toLocaleDateString()}
                     </span>
                   </li>
                 ))}

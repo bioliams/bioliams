@@ -48,6 +48,8 @@ export function ProjectsManager({
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  // Two clicks to delete: the first arms the button and names the consequence.
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function run(fn: () => Promise<{ error?: string }>, success: string) {
@@ -163,20 +165,22 @@ export function ProjectsManager({
             {projects.map((project) => (
               <Button
                 key={project.id}
-                variant="outline"
+                variant={confirmingDelete === project.id ? "destructive" : "outline"}
                 size="sm"
                 disabled={pending}
+                onBlur={() => setConfirmingDelete(null)}
                 onClick={() => {
-                  if (
-                    !window.confirm(
-                      `Delete “${project.name}”? Its ${project.recordCount} record(s) stay in the lab, unfiled.`
-                    )
-                  )
+                  if (confirmingDelete !== project.id) {
+                    setConfirmingDelete(project.id);
                     return;
+                  }
+                  setConfirmingDelete(null);
                   run(() => deleteProjectAction(project.id), `Deleted ${project.name}`);
                 }}
               >
-                {project.name} ×
+                {confirmingDelete === project.id
+                  ? `Delete — ${project.recordCount} record(s) stay, unfiled`
+                  : `${project.name} ×`}
               </Button>
             ))}
           </div>

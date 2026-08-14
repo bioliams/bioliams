@@ -16,6 +16,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EntityDialog } from "@/components/entity-dialog";
 import { CsvImportDialog } from "@/components/csv-import-dialog";
 import { formatFieldValue } from "@/lib/format-field";
@@ -107,6 +115,8 @@ export function RegistryView({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [viewName, setViewName] = useState("");
   const [pending, startTransition] = useTransition();
 
   // Sorting and paging live in the URL and are applied by the database, so a
@@ -147,14 +157,15 @@ export function RegistryView({
   }
 
   async function saveCurrentView() {
-    const name = window.prompt("Name this view (shared with the whole lab)");
-    if (!name?.trim()) return;
-    const result = await saveViewAction(type.slug, name, query);
+    if (!viewName.trim()) return;
+    const result = await saveViewAction(type.slug, viewName, query);
     if (result.error) {
       toast.error(result.error);
       return;
     }
-    toast.success(`Saved “${name.trim()}”`);
+    toast.success(`Saved “${viewName.trim()}”`);
+    setViewDialogOpen(false);
+    setViewName("");
     router.refresh();
   }
 
@@ -322,7 +333,7 @@ export function RegistryView({
             </option>
           ))}
         </select>
-        <Button variant="ghost" size="sm" onClick={saveCurrentView}>
+        <Button variant="ghost" size="sm" onClick={() => setViewDialogOpen(true)}>
           Save as view
         </Button>
       </div>
@@ -432,6 +443,44 @@ export function RegistryView({
           </div>
         </div>
       )}
+
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Save this view</DialogTitle>
+            <DialogDescription>
+              The current search, filters and sort, saved for the whole lab.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveCurrentView();
+            }}
+          >
+            <Input
+              autoFocus
+              value={viewName}
+              onChange={(e) => setViewName(e.target.value)}
+              placeholder="e.g. Blood samples in the -80"
+              aria-label="View name"
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setViewDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!viewName.trim()}>
+                Save view
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <EntityDialog
         open={dialogOpen}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { FieldDef, FieldType } from "@/db/schema/lims";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -67,15 +68,11 @@ export function TypesManager({ types }: { types: ManagedType[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Record types</h1>
-          <p className="text-sm text-muted-foreground">
-            Define what you track and which fields each record carries — no code needed.
-          </p>
-        </div>
-        <Button onClick={() => setCreating(true)}>New record type</Button>
-      </div>
+      <PageHeader
+        title="Record types"
+        description="Define what you track and which fields each record carries — no code needed."
+        actions={<Button onClick={() => setCreating(true)}>New record type</Button>}
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         {types.map((type) => (

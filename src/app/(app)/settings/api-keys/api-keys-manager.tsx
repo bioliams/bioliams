@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
 import {
   Table,
   TableBody,
@@ -56,12 +57,14 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyRow[] }) {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">API keys</h1>
-        <p className="text-sm text-muted-foreground">
-          Use these with the REST API at <code>/api/v1</code>. Keys are scoped to this lab.
-        </p>
-      </div>
+      <PageHeader
+        title="API keys"
+        description={
+          <>
+            Use these with the REST API at <code>/api/v1</code>. Keys are scoped to this lab.
+          </>
+        }
+      />
 
       {newKey && (
         <Card className="border-primary/50">

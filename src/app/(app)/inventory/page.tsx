@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { QuantityCell } from "./quantity-cell";
+import { PageHeader } from "@/components/page-header";
 
 export default async function InventoryPage() {
   const ctx = await requireOrg();
@@ -19,18 +20,15 @@ export default async function InventoryPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Inventory</h1>
-          <p className="text-sm text-muted-foreground">
-            Consumable stock levels. Edit a quantity inline to correct it, or record what you
-            took off the shelf.
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/inventory/use">Use stock</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Inventory"
+        description="Consumable stock levels. Edit a quantity inline to correct it, or record what you took off the shelf."
+        actions={
+          <Button asChild>
+            <Link href="/inventory/use">Use stock</Link>
+          </Button>
+        }
+      />
 
       <div className="overflow-x-auto rounded-md border bg-card shadow-sm">
         <Table>

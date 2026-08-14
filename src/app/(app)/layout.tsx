@@ -9,6 +9,7 @@ import { UserMenu } from "@/components/user-menu";
 import { NavLink } from "@/components/nav-link";
 import { MobileNav, type NavSection } from "@/components/mobile-nav";
 import { GlobalSearch } from "@/components/global-search";
+import { CommandPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/inventory", label: "Inventory" },
         { href: "/inventory/use", label: "Use stock" },
         { href: "/purchasing", label: "Purchasing" },
+        { href: "/analytics", label: "Analytics" },
       ],
     },
     {
@@ -64,6 +66,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </NavLink>
             <NavLink href="/inventory/use">Use stock</NavLink>
             <NavLink href="/purchasing">Purchasing</NavLink>
+            <NavLink href="/analytics">Analytics</NavLink>
           </div>
 
           <div className="space-y-1">
@@ -110,10 +113,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <ScanLine className="size-5" />
               </Link>
             </Button>
-            <UserMenu name={ctx.userName} role={ctx.role} />
+            <UserMenu name={ctx.userName} role={ctx.role} image={ctx.userImage} />
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6">{children}</main>
+        <CommandPalette />
       </div>
     </div>
   );

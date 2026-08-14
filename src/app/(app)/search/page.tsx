@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireOrg } from "@/lib/tenant";
 import { listEntities } from "@/lib/services/entities";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -28,16 +29,14 @@ export default async function SearchPage({
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">
-          {query ? `Results for “${query}”` : "Search"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {query
+      <PageHeader
+        title={query ? `Results for “${query}”` : "Search"}
+        description={
+          query
             ? `${rows.length} record${rows.length === 1 ? "" : "s"} across every registry — names, IDs and field values.`
-            : "Search every registry at once from the box in the header."}
-        </p>
-      </div>
+            : "Search every registry at once from the box in the header."
+        }
+      />
 
       {query && (
         <div className="overflow-x-auto rounded-md border bg-card shadow-sm">

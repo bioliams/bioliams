@@ -18,13 +18,18 @@ export function GlobalSearch() {
         if (value.trim()) router.push(`/search?q=${encodeURIComponent(value.trim())}`);
       }}
     >
-      <Input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Search everything…"
-        aria-label="Search all records"
-        className="h-9 w-44 lg:w-64"
-      />
+      <div className="relative">
+        <Input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Search everything…"
+          aria-label="Search all records"
+          className="h-9 w-44 pr-12 lg:w-64"
+        />
+        <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border bg-muted px-1.5 text-[10px] text-muted-foreground">
+          ⌘K
+        </kbd>
+      </div>
     </form>
   );
 }

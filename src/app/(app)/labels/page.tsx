@@ -6,6 +6,7 @@ import { requireOrg } from "@/lib/tenant";
 import { qrSvg } from "@/lib/barcode";
 import { Button } from "@/components/ui/button";
 import { PrintButton } from "./print-button";
+import { PageHeader } from "@/components/page-header";
 
 /**
  * A printable sheet of labels. Takes display IDs in the query string so any
@@ -50,21 +51,19 @@ export default async function LabelsPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
-        <div>
-          <h1 className="text-xl font-semibold">Labels</h1>
-          <p className="text-sm text-muted-foreground">
-            {labels.length} label{labels.length === 1 ? "" : "s"}. Scanning one opens that
-            record — a phone camera is enough, there is nothing to install.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/">Done</Link>
-          </Button>
-          <PrintButton />
-        </div>
-      </div>
+      <PageHeader
+        className="print:hidden"
+        title="Labels"
+        description={`${labels.length} label${labels.length === 1 ? "" : "s"}. Scanning one opens that record — a phone camera is enough, there is nothing to install.`}
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link href="/">Done</Link>
+            </Button>
+            <PrintButton />
+          </>
+        }
+      />
 
       {labels.length === 0 ? (
         <p className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">

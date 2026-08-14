@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/page-header";
 import type { LocationNode, LocationKind } from "@/lib/services/locations";
 import {
   Building2,
@@ -84,15 +85,11 @@ export function LocationsView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Storage</h1>
-          <p className="text-sm text-muted-foreground">
-            Freezers, racks and boxes. Select a box to see its grid.
-          </p>
-        </div>
-        <Button onClick={() => setAddOpen(true)}>Add location</Button>
-      </div>
+      <PageHeader
+        title="Storage"
+        description="Freezers, racks and boxes. Select a box to see its grid."
+        actions={<Button onClick={() => setAddOpen(true)}>Add location</Button>}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         <Card>

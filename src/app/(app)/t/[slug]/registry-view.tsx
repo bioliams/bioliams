@@ -33,6 +33,7 @@ import {
 import { EntityDialog } from "@/components/entity-dialog";
 import { CsvImportDialog } from "@/components/csv-import-dialog";
 import { formatFieldValue } from "@/lib/format-field";
+import { PageHeader } from "@/components/page-header";
 import { saveViewAction, deleteViewAction } from "./view-actions";
 import { exportEntitiesAction } from "./export-action";
 import { PAGE_SIZE } from "@/lib/pagination";
@@ -270,22 +271,24 @@ export function RegistryView({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
+      <PageHeader
+        className="print:hidden"
+        title={
+          <>
             <span
               className="inline-block size-3 rounded-full"
               style={{ backgroundColor: type.color ?? "#64748b" }}
             />
             {type.name}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {total === 0
-              ? "No records"
-              : `${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rows.length} of ${total} record${total === 1 ? "" : "s"}`}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+          </>
+        }
+        description={
+          total === 0
+            ? "No records"
+            : `${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rows.length} of ${total} record${total === 1 ? "" : "s"}`
+        }
+        actions={
+          <>
           {canWrite && (
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               Import
@@ -306,10 +309,9 @@ export function RegistryView({
           {canWrite && (
             <Button onClick={() => setDialogOpen(true)}>Register {type.name}</Button>
           )}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 print:hidden">
+          </>
+        }
+      >
         <Input
           placeholder="Search by name or ID…"
           value={search}
@@ -345,7 +347,7 @@ export function RegistryView({
         <Button variant="ghost" size="sm" onClick={() => setViewDialogOpen(true)}>
           Save as view
         </Button>
-      </div>
+      </PageHeader>
 
       {views.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">

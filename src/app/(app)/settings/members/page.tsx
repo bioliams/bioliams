@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { member, user, invitation } from "@/db/schema";
 import { requireOrg } from "@/lib/tenant";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { initials } from "@/lib/initials";
 import {
   Table,
   TableBody,
@@ -12,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InviteForm } from "./invite-form";
+import { PageHeader } from "@/components/page-header";
 import { RoleSelect } from "./role-select";
 import { can, ROLE_DESCRIPTIONS, ROLES } from "@/lib/permissions";
 
@@ -31,10 +34,7 @@ export default async function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Members</h1>
-        <p className="text-sm text-muted-foreground">Everyone with access to this lab.</p>
-      </div>
+      <PageHeader title="Members" description="Everyone with access to this lab." />
 
       <dl className="grid gap-1 rounded-md border bg-muted/30 p-3 text-xs sm:grid-cols-2">
         {ROLES.map((r) => (
@@ -59,7 +59,17 @@ export default async function MembersPage() {
           <TableBody>
             {members.map(({ member: m, user: u }) => (
               <TableRow key={m.id}>
-                <TableCell>{u.name}</TableCell>
+                <TableCell>
+                  <span className="flex items-center gap-2.5">
+                    <Avatar className="size-7">
+                      {u.image && <AvatarImage src={u.image} alt="" />}
+                      <AvatarFallback className="bg-accent text-[10px] font-semibold text-accent-foreground">
+                        {initials(u.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {u.name}
+                  </span>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{u.email}</TableCell>
                 <TableCell>
                   {canManage ? (

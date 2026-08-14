@@ -1,6 +1,7 @@
 import { requireOrg } from "@/lib/tenant";
 import { listAudit } from "@/lib/services/audit";
 import { summariseAudit, actionLabel } from "@/lib/audit-summary";
+import { PageHeader } from "@/components/page-header";
 import {
   Table,
   TableBody,
@@ -16,12 +17,10 @@ export default async function AuditPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Audit log</h1>
-        <p className="text-sm text-muted-foreground">
-          Append-only record of every change, for traceability and compliance.
-        </p>
-      </div>
+      <PageHeader
+        title="Audit log"
+        description="Append-only record of every change, for traceability and compliance."
+      />
 
       <div className="overflow-x-auto rounded-md border bg-card shadow-sm">
         <Table>

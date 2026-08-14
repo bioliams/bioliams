@@ -28,6 +28,7 @@ import {
   setPurchaseStatusAction,
   updatePurchaseAction,
 } from "./actions";
+import { PageHeader } from "@/components/page-header";
 
 type Status = "requested" | "approved" | "ordered" | "received" | "rejected";
 
@@ -104,16 +105,11 @@ export function PurchasingView({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Purchasing</h1>
-          <p className="text-sm text-muted-foreground">
-            What the lab needs to buy, from request to arriving on the shelf. Linking a
-            request to a stock record tops that record up when it&rsquo;s received.
-          </p>
-        </div>
-        {canRequest && <Button onClick={() => setOpen(true)}>Request an item</Button>}
-      </div>
+      <PageHeader
+        title="Purchasing"
+        description="What the lab needs to buy, from request to arriving on the shelf. Linking a request to a stock record tops that record up when it's received."
+        actions={canRequest && <Button onClick={() => setOpen(true)}>Request an item</Button>}
+      />
 
       <RequestTable
         title="Open"

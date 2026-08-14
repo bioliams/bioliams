@@ -6,6 +6,7 @@ import { listAudit } from "@/lib/services/audit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { actionLabel } from "@/lib/audit-summary";
+import { PageHeader } from "@/components/page-header";
 
 export default async function DashboardPage() {
   const ctx = await requireOrg();
@@ -17,7 +18,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Dashboard</h1>
+      <PageHeader title="Dashboard" description="What needs attention, and what just happened." />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {counts.map((c) => (

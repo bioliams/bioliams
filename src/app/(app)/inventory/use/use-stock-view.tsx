@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { consumeInventoryAction } from "../actions";
+import { PageHeader } from "@/components/page-header";
 
 export interface UsableItem {
   entityId: string;
@@ -109,19 +110,15 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Use stock</h1>
-          <p className="text-sm text-muted-foreground">
-            Search for what you took off the shelf, tick everything the experiment used, and
-            record it in one go.
-          </p>
-        </div>
-        <Button variant="outline" asChild>
-          <Link href="/inventory">All inventory</Link>
-        </Button>
-      </div>
-
+      <PageHeader
+        title="Use stock"
+        description="Search for what you took off the shelf, tick everything the experiment used, and record it in one go."
+        actions={
+          <Button variant="outline" asChild>
+            <Link href="/inventory">All inventory</Link>
+          </Button>
+        }
+      >
       <Input
         autoFocus
         value={query}
@@ -138,6 +135,7 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
         placeholder="Search or scan — name, ID, freezer, type or lot…"
         className="max-w-md"
       />
+      </PageHeader>
 
       {matches.length === 0 && (
         <p className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">

@@ -10,6 +10,7 @@ import { visibleProjectIds } from "@/lib/services/projects";
 export interface OrgContext {
   userId: string;
   userName: string;
+  userImage: string | null;
   orgId: string;
   role: string;
   /** Projects this member is confined to; empty means the whole lab. */
@@ -52,6 +53,7 @@ export async function requireOrg(): Promise<OrgContext> {
   return {
     userId: session.user.id,
     userName: session.user.name,
+    userImage: session.user.image ?? null,
     orgId,
     role: membership[0].role,
     projectIds: await visibleProjectIds(orgId, session.user.id),

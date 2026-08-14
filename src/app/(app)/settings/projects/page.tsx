@@ -5,6 +5,7 @@ import { requireOrg } from "@/lib/tenant";
 import { can } from "@/lib/permissions";
 import { listProjects, listProjectMembers } from "@/lib/services/projects";
 import { ProjectsManager } from "./projects-manager";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata = { title: "Projects · BioLIMS" };
 
@@ -22,14 +23,10 @@ export default async function ProjectsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold">Projects</h1>
-        <p className="text-sm text-muted-foreground">
-          Projects restrict what a collaborator sees. Someone assigned to no project sees the
-          whole lab; assign them to one or more and they see only those, plus records that
-          aren&rsquo;t filed under any project.
-        </p>
-      </div>
+      <PageHeader
+        title="Projects"
+        description="Projects restrict what a collaborator sees. Someone assigned to no project sees the whole lab; assign them to one or more and they see only those, plus records that aren't filed under any project."
+      />
 
       <ProjectsManager
         projects={rows.map(({ project, memberCount, recordCount }) => ({

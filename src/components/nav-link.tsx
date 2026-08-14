@@ -20,7 +20,7 @@ export function NavLink({
     <Link
       href={href}
       className={cn(
-        "block rounded-md px-3 py-1.5 transition-colors hover:bg-white/5 hover:text-white",
+        "block rounded-md px-3 py-1.5 transition-colors hover:bg-muted",
         active && "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
       )}
     >

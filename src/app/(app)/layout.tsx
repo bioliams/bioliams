@@ -50,7 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex print:hidden">
         <div className="flex h-14 items-center border-b border-sidebar-border px-4">
-          <Link href="/" className="font-semibold tracking-tight text-white">
+          <Link href="/" className="font-semibold tracking-tight text-foreground">
             🧪 BioLIMS
           </Link>
         </div>
@@ -67,7 +67,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-sidebar-foreground/50">
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Registries
             </p>
             {types.map((t) => (
@@ -80,12 +80,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </NavLink>
             ))}
             {types.length === 0 && (
-              <p className="px-3 text-xs text-sidebar-foreground/50">No record types yet.</p>
+              <p className="px-3 text-xs text-muted-foreground">No record types yet.</p>
             )}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-sidebar-foreground/50">
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Settings
             </p>
             <NavLink href="/settings/types">Record types</NavLink>

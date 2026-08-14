@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d9488",
+  themeColor: "#0c66e4",
   // The scanner and the freezer grid both suffer if a stray double-tap zooms
   // the page, but pinch-zoom stays available for anyone who needs it.
   initialScale: 1,

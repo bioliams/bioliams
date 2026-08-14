@@ -213,27 +213,34 @@ export async function askAssistant(
     ...history.slice(-12),
   ];
 
-  for (let turn = 0; turn < 6; turn++) {
-    const res = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages,
-        tools: TOOLS,
-        temperature: 0.2,
-      }),
-    });
+  // Free tiers spike: retry once, then fall back to the lite model before
+  // showing anyone an error.
+  const modelCandidates = [config.model, config.model, "gemini-2.5-flash-lite"];
 
-    if (!res.ok) {
-      const body = await res.text();
+  for (let turn = 0; turn < 6; turn++) {
+    let res: Response | null = null;
+    for (const [attempt, model] of modelCandidates.entries()) {
+      res = await fetch(`${config.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model, messages, tools: TOOLS, temperature: 0.2 }),
+      });
+      if (res.ok || (res.status !== 503 && res.status !== 429)) break;
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    }
+
+    if (!res || !res.ok) {
+      const body = res ? await res.text() : "";
+      const status = res?.status ?? 0;
       throw new ServiceError(
-        res.status === 401 || res.status === 403
+        status === 401 || status === 403
           ? "The AI provider rejected the key — check Settings → AI assistant"
-          : `The AI provider returned an error (${res.status}): ${body.slice(0, 200)}`,
+          : status === 503 || status === 429
+            ? "The model is overloaded right now — try again in a minute"
+            : `The AI provider returned an error (${status}): ${body.slice(0, 200)}`,
         502
       );
     }

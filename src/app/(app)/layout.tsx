@@ -30,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/inventory/use", label: "Use stock" },
         { href: "/purchasing", label: "Purchasing" },
         { href: "/analytics", label: "Analytics" },
+        { href: "/assistant", label: "Assistant" },
       ],
     },
     {
@@ -43,6 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/settings/members", label: "Members" },
         { href: "/settings/projects", label: "Projects" },
         { href: "/settings/api-keys", label: "API keys" },
+        { href: "/settings/ai", label: "AI assistant" },
         { href: "/settings/audit", label: "Audit log" },
       ],
     },
@@ -52,8 +54,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex print:hidden">
         <div className="flex h-14 items-center border-b border-sidebar-border px-4">
-          <Link href="/" className="font-semibold tracking-tight text-foreground">
-            🧪 BioLIMS
+          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight text-foreground">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand-mark.png" alt="" className="size-6" />
+            BioLIMS
           </Link>
         </div>
         <nav className="flex-1 space-y-6 overflow-y-auto p-3 text-sm">
@@ -67,6 +71,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <NavLink href="/inventory/use">Use stock</NavLink>
             <NavLink href="/purchasing">Purchasing</NavLink>
             <NavLink href="/analytics">Analytics</NavLink>
+            <NavLink href="/assistant">Assistant</NavLink>
           </div>
 
           <div className="space-y-1">
@@ -95,6 +100,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <NavLink href="/settings/members">Members</NavLink>
             <NavLink href="/settings/projects">Projects</NavLink>
             <NavLink href="/settings/api-keys">API keys</NavLink>
+            <NavLink href="/settings/ai">AI assistant</NavLink>
             <NavLink href="/settings/audit">Audit log</NavLink>
           </div>
         </nav>

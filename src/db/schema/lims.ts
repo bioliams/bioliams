@@ -310,6 +310,22 @@ export const attachments = pgTable(
   (t) => [index("attachments_entity_idx").on(t.entityId)]
 );
 
+/**
+ * Which model answers questions about the lab, and with whose key.
+ *
+ * One row per lab. Unset means the deployment's shared key (if any) is used —
+ * a self-hosted install with no shared key simply shows the assistant as
+ * needing configuration, never a broken chat.
+ */
+export const aiSettings = pgTable("ai_settings", {
+  id: id(),
+  organizationId: orgId(),
+  baseUrl: text("base_url").notNull().default("https://generativelanguage.googleapis.com/v1beta/openai"),
+  apiKey: text("api_key"),
+  model: text("model").notNull().default("gemini-flash-latest"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const apiKeys = pgTable(
   "api_keys",
   {

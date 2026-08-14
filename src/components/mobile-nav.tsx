@@ -36,7 +36,11 @@ export function MobileNav({ sections }: { sections: NavSection[] }) {
       </SheetTrigger>
       <SheetContent side="left" className="w-64 p-0">
         <SheetHeader className="border-b px-4 py-3">
-          <SheetTitle className="text-left">🧪 BioLIMS</SheetTitle>
+          <SheetTitle className="flex items-center gap-2 text-left">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand-mark.png" alt="" className="size-5" />
+            BioLIMS
+          </SheetTitle>
         </SheetHeader>
         <nav className="space-y-5 overflow-y-auto p-3 text-sm">
           {sections.map((section, i) => (

@@ -43,6 +43,13 @@
       "when": 1786654783897,
       "tag": "0005_black_blur",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786690058604,
+      "tag": "0006_boring_kree",
+      "breakpoints": true
     }
   ]
 }

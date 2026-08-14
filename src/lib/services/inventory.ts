@@ -540,6 +540,15 @@ export async function splitIntoAliquots(
       count: "Use whole numbers",
     });
   }
+  // A full plate per split. Bigger asks once left a serverless function dead
+  // mid-transaction, which parked an abandoned lock on the whole lab.
+  if (totalVials > 96) {
+    throw new ServiceError(
+      "Split up to 96 aliquots at a time — run it twice for more",
+      400,
+      { count: "96 at most per split" }
+    );
+  }
   for (const g of groups) {
     const each = Number(g.amountEach);
     if (!g.amountEach.trim() || !Number.isFinite(each) || each <= 0) {

@@ -102,7 +102,7 @@ export function ProjectsManager({
           No projects yet — everyone in the lab sees every record.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
+        <div className="overflow-x-auto rounded-md border bg-card shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>

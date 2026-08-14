@@ -23,7 +23,7 @@ export default async function AuditPage() {
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-md border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>

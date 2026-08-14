@@ -40,7 +40,7 @@ export default async function SearchPage({
       </div>
 
       {query && (
-        <div className="overflow-x-auto rounded-md border">
+        <div className="overflow-x-auto rounded-md border bg-card shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>

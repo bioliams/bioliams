@@ -92,7 +92,7 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyRow[] }) {
         </Button>
       </form>
 
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-md border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>

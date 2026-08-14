@@ -176,7 +176,7 @@ function RequestTable({
   return (
     <div className="space-y-2">
       <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-md border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>

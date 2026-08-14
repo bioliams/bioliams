@@ -255,7 +255,7 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
       {usage.length > 0 && (
         <div className="space-y-2 pt-2">
           <h2 className="text-sm font-medium text-muted-foreground">Recent usage</h2>
-          <ul className="divide-y rounded-md border text-sm">
+          <ul className="divide-y rounded-md border bg-card text-sm shadow-sm">
             {usage.map((e) => (
               <li key={e.id} className="flex flex-wrap items-center gap-x-2 px-3 py-2">
                 <span className="font-medium tabular-nums">

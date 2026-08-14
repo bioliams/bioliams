@@ -47,7 +47,7 @@ export default async function MembersPage() {
 
       {canManage && <InviteForm />}
 
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-md border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>

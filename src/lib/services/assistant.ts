@@ -215,7 +215,7 @@ export async function askAssistant(
 
   // Free tiers spike: retry once, then fall back to the lite model before
   // showing anyone an error.
-  const modelCandidates = [config.model, config.model, "gemini-2.5-flash-lite"];
+  const modelCandidates = [config.model, config.model, "gemini-flash-lite-latest"];
 
   for (let turn = 0; turn < 6; turn++) {
     let res: Response | null = null;
@@ -228,7 +228,7 @@ export async function askAssistant(
         },
         body: JSON.stringify({ model, messages, tools: TOOLS, temperature: 0.2 }),
       });
-      if (res.ok || (res.status !== 503 && res.status !== 429)) break;
+      if (res.ok || res.status === 401 || res.status === 403) break;
       await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
     }
 

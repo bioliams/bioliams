@@ -30,7 +30,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
         run: |
-          pg_dump "$DATABASE_URL" --format=custom --no-owner \
+          # ubuntu-latest ships client 16 on PATH; the server is 17.
+          /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" --format=custom --no-owner \
             --file="biolims-$(date +%F).dump"
           ls -la biolims-*.dump
 
@@ -38,7 +39,7 @@ jobs:
         run: |
           # pg_restore --list parses the archive's table of contents; a
           # truncated or corrupt dump fails here rather than on restore day.
-          pg_restore --list biolims-*.dump > toc.txt
+          /usr/lib/postgresql/17/bin/pg_restore --list biolims-*.dump > toc.txt
           grep -q "TABLE DATA public entities" toc.txt
           grep -q "TABLE DATA public audit_log" toc.txt
           echo "TOC entries: $(wc -l < toc.txt)"

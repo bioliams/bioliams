@@ -117,6 +117,11 @@ data must not leave the building.
 
 <img src="docs/screenshots/assistant.png" alt="The lab assistant answering a stock question" width="100%">
 
+**💾 Backed up like it matters.** The hosted service takes a nightly database dump,
+verifies the archive actually contains the core tables, and keeps 30 days of copies away
+from the database provider. Self-hosting? [BACKUPS.md](BACKUPS.md) gives you the same in
+one workflow file, plus a restore drill to practise before you need it.
+
 **📊 See what the lab actually uses.** Analytics charts registrations, stock used vs.
 received, the most-consumed reagents and activity by member — from the same events the
 audit log records, nothing sampled.
@@ -173,7 +178,7 @@ works today. It is young software: expect rough edges, and please report them.
 | 📤 **Excel in and out** | Import .xlsx or CSV, export a real spreadsheet, print any registry to PDF |
 | 👥 **Roles** | Owner, admin, member, storage manager and read-only, enforced server-side |
 | 🛒 **Purchasing** | Request → approve → order → receive, topping up stock on arrival |
-| 💾 **Backup guide** | A restore you have actually practised — see [BACKUPS.md](BACKUPS.md) |
+| 💾 **Backups** | Hosted: nightly `pg_dump`, archive verified, 30 days kept off-provider. Self-host: [BACKUPS.md](BACKUPS.md) with a practised restore |
 | ✨ **AI lab assistant** | Plain-language questions over your records, bring-your-own model including free tiers |
 | 📊 **Analytics** | Registrations, consumption, top reagents and member activity over twelve weeks |
 | ⌨️ **Command palette** | ⌘K jumps to any page or record |

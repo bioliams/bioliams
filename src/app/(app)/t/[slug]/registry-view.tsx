@@ -90,6 +90,8 @@ export interface LocationOption {
   id: string;
   name: string;
   kind: string;
+  gridRows: number | null;
+  gridCols: number | null;
 }
 
 export interface SavedView {

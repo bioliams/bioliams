@@ -26,6 +26,7 @@ const KIND_ICONS: Record<LocationKind, React.ComponentType<{ className?: string 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -43,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createLocationAction, deleteLocationAction, assignPositionAction } from "./actions";
+import { MAX_GRID_COLS, MAX_GRID_ROWS, wellLabel } from "@/lib/well";
 
 const KINDS: LocationKind[] = ["site", "room", "freezer", "shelf", "rack", "box"];
 const ROOT = "__root__";
@@ -87,7 +89,7 @@ export function LocationsView({
     <div className="space-y-4">
       <PageHeader
         title="Storage"
-        description="Freezers, racks and boxes. Select a box to see its grid."
+        description="Freezers, racks and boxes. Select a box or rack to see its grid."
         actions={<Button onClick={() => setAddOpen(true)}>Add location</Button>}
       />
 
@@ -125,7 +127,7 @@ export function LocationsView({
               </Button>
             </CardHeader>
             <CardContent>
-              {selected.kind === "box" && selected.gridRows && selected.gridCols ? (
+              {selected.gridRows && selected.gridCols ? (
                 <BoxGrid selected={selected} />
               ) : (
                 <ContentsList selected={selected} />
@@ -137,7 +139,7 @@ export function LocationsView({
             <CardContent className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted-foreground">
               <Snowflake className="size-8 opacity-30" />
               <p>Pick a freezer or box on the left to see what&rsquo;s inside.</p>
-              <p className="text-xs">Boxes show a grid with every occupied well.</p>
+              <p className="text-xs">Boxes and gridded racks show every occupied well.</p>
             </CardContent>
           </Card>
         )}
@@ -232,7 +234,7 @@ function BoxGrid({ selected }: { selected: SelectedLocation }) {
 
   async function placeInWell(entityId: string, row: number, col: number) {
     const result = await assignPositionAction(entityId, selected.id, row, col);
-    if (result.error) toast.error(result.error);
+    if (result.error) toast.error(result.fieldErrors?.position ?? result.error);
     else {
       toast.success(`Placed at ${wellLabel(row, col)}`);
       router.refresh();
@@ -266,7 +268,7 @@ function BoxGrid({ selected }: { selected: SelectedLocation }) {
 
       {unplaced.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium">In this box, not yet placed in a well</p>
+          <p className="text-sm font-medium">Stored here, not yet placed in a well</p>
           <ul className="space-y-1 text-sm">
             {unplaced.map((item) => (
               <li key={item.id} className="flex items-center gap-2">
@@ -363,10 +365,6 @@ function PlacePicker({
   );
 }
 
-function wellLabel(row: number, col: number) {
-  return `${String.fromCharCode(65 + row)}${col + 1}`;
-}
-
 function flatten(nodes: LocationNode[], depth = 0): { id: string; label: string }[] {
   return nodes.flatMap((n) => [
     { id: n.id, label: `${"— ".repeat(depth)}${n.name}` },
@@ -389,6 +387,8 @@ function AddLocationDialog({
   const [parentId, setParentId] = useState<string>(ROOT);
   const [gridRows, setGridRows] = useState("9");
   const [gridCols, setGridCols] = useState("9");
+  const [rackGrid, setRackGrid] = useState(false);
+  const gridded = kind === "box" || (kind === "rack" && rackGrid);
   const [pending, setPending] = useState(false);
 
   const options = flatten(tree);
@@ -400,12 +400,13 @@ function AddLocationDialog({
       name,
       kind,
       parentId: parentId === ROOT ? null : parentId,
-      gridRows: Number(gridRows),
-      gridCols: Number(gridCols),
+      gridRows: gridded ? Number(gridRows) : null,
+      gridCols: gridded ? Number(gridCols) : null,
     });
     setPending(false);
     if (result.error) {
-      toast.error(result.error);
+      const fieldErrors = Object.values(result.fieldErrors ?? {});
+      toast.error(fieldErrors.length > 0 ? fieldErrors.join(" · ") : result.error);
       return;
     }
     toast.success("Location created");
@@ -419,7 +420,9 @@ function AddLocationDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add location</DialogTitle>
-          <DialogDescription>Boxes get a grid you can place samples into.</DialogDescription>
+          <DialogDescription>
+            Boxes — and racks, if you like — get a grid you can place samples into.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -459,7 +462,13 @@ function AddLocationDialog({
               </Select>
             </div>
           </div>
-          {kind === "box" && (
+          {kind === "rack" && (
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={rackGrid} onCheckedChange={(v) => setRackGrid(v === true)} />
+              Tubes sit directly in this rack (give it a grid)
+            </label>
+          )}
+          {gridded && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="loc-rows">Rows</Label>
@@ -467,7 +476,7 @@ function AddLocationDialog({
                   id="loc-rows"
                   type="number"
                   min={1}
-                  max={26}
+                  max={MAX_GRID_ROWS}
                   value={gridRows}
                   onChange={(e) => setGridRows(e.target.value)}
                 />
@@ -478,7 +487,7 @@ function AddLocationDialog({
                   id="loc-cols"
                   type="number"
                   min={1}
-                  max={48}
+                  max={MAX_GRID_COLS}
                   value={gridCols}
                   onChange={(e) => setGridCols(e.target.value)}
                 />

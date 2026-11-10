@@ -39,6 +39,8 @@ export const POST = withApiAuth(async (req, ctx) => {
     status: body.status,
     data: body.data ?? {},
     locationId: body.location_id ?? null,
+    positionRow: body.position_row ?? null,
+    positionCol: body.position_col ?? null,
     parentId: body.parent_id ?? null,
     quantity: body.quantity,
     unit: body.unit,

@@ -98,8 +98,16 @@ export default async function EntityDetailPage({
             status: entity.status,
             data: entity.data,
             locationId: entity.locationId,
+            positionRow: entity.positionRow,
+            positionCol: entity.positionCol,
           }}
-          locations={locations.map((l) => ({ id: l.id, name: l.name, kind: l.kind }))}
+          locations={locations.map((l) => ({
+            id: l.id,
+            name: l.name,
+            kind: l.kind,
+            gridRows: l.gridRows,
+            gridCols: l.gridCols,
+          }))}
           stock={inventory ? { quantity: inventory.quantity, unit: inventory.unit } : null}
         />
       </div>
@@ -195,7 +203,13 @@ export default async function EntityDetailPage({
           slug={slug}
           displayId={entity.displayId}
           stock={inventory ? { quantity: inventory.quantity, unit: inventory.unit } : null}
-          locations={locations.map((l) => ({ id: l.id, name: l.name, kind: l.kind }))}
+          locations={locations.map((l) => ({
+            id: l.id,
+            name: l.name,
+            kind: l.kind,
+            gridRows: l.gridRows,
+            gridCols: l.gridCols,
+          }))}
           currentLocationId={entity.locationId}
           custody={{
             holderName,

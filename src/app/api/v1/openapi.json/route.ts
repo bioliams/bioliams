@@ -81,6 +81,11 @@ const spec = {
                   status: { type: "string" },
                   data: { type: "object", additionalProperties: true },
                   location_id: { type: "string" },
+                  position_row: {
+                    type: "integer",
+                    description: "0-based row in a gridded box or rack (0 = A); needs position_col",
+                  },
+                  position_col: { type: "integer", description: "0-based column (0 = column 1)" },
                   parent_id: { type: "string", description: "Derive from an existing record" },
                   quantity: { type: "string" },
                   unit: { type: "string" },

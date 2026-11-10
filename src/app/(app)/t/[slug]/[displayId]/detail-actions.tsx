@@ -22,8 +22,16 @@ export function EntityDetailActions({
     status: string;
     data: Record<string, unknown>;
     locationId: string | null;
+    positionRow: number | null;
+    positionCol: number | null;
   };
-  locations: { id: string; name: string; kind: string }[];
+  locations: {
+    id: string;
+    name: string;
+    kind: string;
+    gridRows: number | null;
+    gridCols: number | null;
+  }[];
   stock: { quantity: string; unit: string } | null;
 }) {
   const router = useRouter();

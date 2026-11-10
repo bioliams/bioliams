@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EntityFieldInput } from "@/components/entity-field-input";
+import { PositionPicker, type Position } from "@/components/position-picker";
 import { createEntityAction, updateEntityAction } from "@/app/(app)/t/[slug]/actions";
 
 const NO_LOCATION = "__none__";
@@ -31,7 +32,13 @@ interface EntityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   type: { name: string; slug: string; fields: FieldDef[]; isInventory: boolean };
-  locations: { id: string; name: string; kind: string }[];
+  locations: {
+    id: string;
+    name: string;
+    kind: string;
+    gridRows: number | null;
+    gridCols: number | null;
+  }[];
   /** Provide to edit an existing record instead of creating one. */
   entity?: {
     id: string;
@@ -39,6 +46,8 @@ interface EntityDialogProps {
     status: string;
     data: Record<string, unknown>;
     locationId: string | null;
+    positionRow: number | null;
+    positionCol: number | null;
   };
 }
 
@@ -48,11 +57,22 @@ export function EntityDialog({ open, onOpenChange, type, locations, entity }: En
   const [name, setName] = useState(entity?.name ?? "");
   const [status, setStatus] = useState(entity?.status ?? "active");
   const [locationId, setLocationId] = useState(entity?.locationId ?? NO_LOCATION);
+  const [position, setPosition] = useState<Position>(
+    entity?.positionRow != null && entity?.positionCol != null
+      ? { row: entity.positionRow, col: entity.positionCol }
+      : null
+  );
   const [data, setData] = useState<Record<string, unknown>>(entity?.data ?? {});
   const [quantity, setQuantity] = useState("0");
   const [unit, setUnit] = useState("units");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
+
+  const selectedLocation = locations.find((l) => l.id === locationId);
+  const grid =
+    selectedLocation?.gridRows && selectedLocation.gridCols
+      ? { rows: selectedLocation.gridRows, cols: selectedLocation.gridCols }
+      : null;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,19 +80,25 @@ export function EntityDialog({ open, onOpenChange, type, locations, entity }: En
     setErrors({});
 
     const resolvedLocation = locationId === NO_LOCATION ? null : locationId;
+    const placed = grid && position ? position : null;
+    const where = {
+      locationId: resolvedLocation,
+      positionRow: placed?.row ?? null,
+      positionCol: placed?.col ?? null,
+    };
     const result = editing
       ? await updateEntityAction(entity!.id, type.slug, {
           name,
           status,
           data,
-          locationId: resolvedLocation,
+          ...where,
         })
       : await createEntityAction({
           typeSlug: type.slug,
           name,
           status,
           data,
-          locationId: resolvedLocation,
+          ...where,
           ...(type.isInventory ? { quantity, unit } : {}),
         });
 
@@ -87,6 +113,8 @@ export function EntityDialog({ open, onOpenChange, type, locations, entity }: En
     if (!editing) {
       setName("");
       setData({});
+      // Keep the box — the next sample usually goes next to this one.
+      setPosition(null);
     }
     router.refresh();
   }
@@ -130,7 +158,13 @@ export function EntityDialog({ open, onOpenChange, type, locations, entity }: En
             </div>
             <div className="space-y-2">
               <Label htmlFor="entity-location">Location</Label>
-              <Select value={locationId} onValueChange={setLocationId}>
+              <Select
+                value={locationId}
+                onValueChange={(value) => {
+                  setLocationId(value);
+                  setPosition(null);
+                }}
+              >
                 <SelectTrigger id="entity-location" className="w-full">
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
@@ -138,13 +172,29 @@ export function EntityDialog({ open, onOpenChange, type, locations, entity }: En
                   <SelectItem value={NO_LOCATION}>Unassigned</SelectItem>
                   {locations.map((l) => (
                     <SelectItem key={l.id} value={l.id}>
-                      {l.name} ({l.kind})
+                      {l.name} ({l.kind}
+                      {l.gridRows && l.gridCols ? ` · ${l.gridRows}×${l.gridCols}` : ""})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {grid && (
+            <div className="space-y-2">
+              <Label>Position in {selectedLocation!.name}</Label>
+              <PositionPicker
+                locationId={locationId}
+                rows={grid.rows}
+                cols={grid.cols}
+                value={position}
+                onChange={setPosition}
+                entityId={entity?.id}
+              />
+              {errors.position && <p className="text-xs text-red-600">{errors.position}</p>}
+            </div>
+          )}
 
           {type.isInventory && !editing && (
             <div className="grid grid-cols-2 gap-4">

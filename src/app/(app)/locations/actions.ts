@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/tenant";
 import { requireCan } from "@/lib/permissions";
-import { createLocation, deleteLocation, type LocationKind } from "@/lib/services/locations";
+import {
+  createLocation,
+  deleteLocation,
+  getOccupiedPositions,
+  type LocationKind,
+} from "@/lib/services/locations";
 import { updateEntity } from "@/lib/services/entities";
 import { type ActionResult, actionError } from "@/lib/action-result";
 
@@ -50,6 +55,18 @@ export async function assignPositionAction(
     await updateEntity(ctx.orgId, ctx.userId, entityId, { locationId, positionRow, positionCol });
     revalidatePath("/locations");
     return { ok: true };
+  } catch (err) {
+    return actionError(err);
+  }
+}
+
+/** Which wells of a box or rack are taken — for the position picker. */
+export async function getOccupancyAction(
+  locationId: string
+): Promise<ActionResult<{ entityId: string; displayId: string; name: string; row: number; col: number }[]>> {
+  const ctx = await requireOrg();
+  try {
+    return { ok: true, value: await getOccupiedPositions(ctx.orgId, locationId) };
   } catch (err) {
     return actionError(err);
   }

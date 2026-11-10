@@ -68,7 +68,13 @@ export default async function RegistryPage({
       }))}
       total={result.total}
       page={pageNumber}
-      locations={locations.map((l) => ({ id: l.id, name: l.name, kind: l.kind }))}
+      locations={locations.map((l) => ({
+        id: l.id,
+        name: l.name,
+        kind: l.kind,
+        gridRows: l.gridRows,
+        gridCols: l.gridCols,
+      }))}
       views={views.map((v) => ({ id: v.id, name: v.name, query: v.query }))}
       filters={{
         q: q ?? "",

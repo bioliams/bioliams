@@ -7,6 +7,12 @@ import { logAudit } from "@/lib/audit";
 import { validateEntityData } from "@/lib/entity-schema";
 import { ServiceError } from "@/lib/service-error";
 import { projectScope } from "./projects";
+import { assertPositionAvailable } from "./locations";
+import { wellLabel } from "@/lib/well";
+
+function positionText(e: { positionRow: number | null; positionCol: number | null }) {
+  return e.positionRow != null && e.positionCol != null ? wellLabel(e.positionRow, e.positionCol) : null;
+}
 
 export { ServiceError } from "@/lib/service-error";
 
@@ -79,6 +85,11 @@ export async function createEntity(
   if (!input.name?.trim()) throw new ServiceError("Validation failed", 400, { name: "Name is required" });
 
   const run = async (tx: Tx) => {
+    await assertPositionAvailable(
+      orgId,
+      { locationId: input.locationId ?? null, row: input.positionRow ?? null, col: input.positionCol ?? null },
+      tx
+    );
     const displayId = await nextDisplayId(tx, orgId, type.id);
     const [row] = await tx
       .insert(entities)
@@ -117,7 +128,7 @@ export async function createEntity(
         targetKind: "entity",
         targetId: row.id,
         targetLabel: `${displayId} ${row.name}`,
-        diff: { after: { name: row.name, status: row.status, data: row.data } },
+        diff: { after: { name: row.name, status: row.status, position: positionText(row), data: row.data } },
       },
       tx
     );
@@ -290,13 +301,32 @@ export async function updateEntity(
   if (input.positionRow !== undefined) patch.positionRow = input.positionRow;
   if (input.positionCol !== undefined) patch.positionCol = input.positionCol;
 
+  const locationChanged = input.locationId !== undefined && input.locationId !== existing.locationId;
+  const positionGiven = input.positionRow !== undefined || input.positionCol !== undefined;
+  // A well in the old box means nothing in the new one.
+  if (locationChanged && !positionGiven) {
+    patch.positionRow = null;
+    patch.positionCol = null;
+  }
+  if (positionGiven) {
+    await assertPositionAvailable(orgId, {
+      locationId: input.locationId !== undefined ? input.locationId : existing.locationId,
+      row: input.positionRow !== undefined ? input.positionRow : existing.positionRow,
+      col: input.positionCol !== undefined ? input.positionCol : existing.positionCol,
+      entityId: existing.id,
+    });
+  }
+
   const [row] = await db
     .update(entities)
     .set(patch)
     .where(and(eq(entities.id, existing.id), eq(entities.organizationId, orgId)))
     .returning();
 
-  const moved = input.locationId !== undefined && input.locationId !== existing.locationId;
+  const moved =
+    locationChanged ||
+    row.positionRow !== existing.positionRow ||
+    row.positionCol !== existing.positionCol;
   await logAudit({
     orgId,
     actorId,
@@ -305,8 +335,20 @@ export async function updateEntity(
     targetId: row.id,
     targetLabel: `${row.displayId} ${row.name}`,
     diff: {
-      before: { name: existing.name, status: existing.status, data: existing.data, locationId: existing.locationId },
-      after: { name: row.name, status: row.status, data: row.data, locationId: row.locationId },
+      before: {
+        name: existing.name,
+        status: existing.status,
+        data: existing.data,
+        locationId: existing.locationId,
+        position: positionText(existing),
+      },
+      after: {
+        name: row.name,
+        status: row.status,
+        data: row.data,
+        locationId: row.locationId,
+        position: positionText(row),
+      },
     },
   });
   return row;

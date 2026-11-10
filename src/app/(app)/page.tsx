@@ -39,6 +39,13 @@ export default async function DashboardPage() {
     summaryNumbers(ctx.orgId),
   ]);
 
+  const stats = [
+    { label: "Records", value: totals.records, href: "/search" },
+    { label: "Low stock", value: totals.lowStock, href: "/inventory" },
+    { label: "Open orders", value: totals.openOrders, href: "/purchasing" },
+    { label: "Checked out", value: totals.checkedOut, href: null },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader title="Dashboard" description="What needs attention, and what just happened." />

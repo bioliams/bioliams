@@ -3,12 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/tenant";
 import { requireCan } from "@/lib/permissions";
-import { consumeInventoryMany, updateInventory } from "@/lib/services/inventory";
+import {
+  consumeInventoryMany,
+  updateInventory,
+  type StockSettingsInput,
+} from "@/lib/services/inventory";
 import { type ActionResult, actionError } from "@/lib/action-result";
 
 export async function updateInventoryAction(
   entityId: string,
-  input: { quantity?: string; unit?: string; minThreshold?: string | null; lot?: string | null }
+  input: StockSettingsInput
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   try {
@@ -16,6 +20,8 @@ export async function updateInventoryAction(
     await updateInventory(ctx.orgId, ctx.userId, entityId, input);
     revalidatePath("/inventory");
     revalidatePath("/inventory/use");
+    revalidatePath("/notifications");
+    revalidatePath("/t", "layout");
     revalidatePath("/");
     return { ok: true };
   } catch (err) {

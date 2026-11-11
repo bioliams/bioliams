@@ -8,7 +8,9 @@ import {
   numeric,
   index,
   uniqueIndex,
+  primaryKey,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { organization, user } from "./auth";
 
 export type FieldType =
@@ -127,6 +129,11 @@ export const inventoryItems = pgTable(
     quantity: numeric("quantity").notNull().default("0"),
     unit: text("unit").notNull().default("units"),
     minThreshold: numeric("min_threshold"),
+    /**
+     * The level at which the item counts as out of stock. Usually 0, but a
+     * bottle with 2 mL of dead volume is empty long before it reads zero.
+     */
+    zeroPoint: numeric("zero_point").notNull().default("0"),
     lot: text("lot"),
     expiresAt: timestamp("expires_at"),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -396,4 +403,52 @@ export const apiKeys = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("api_keys_org_idx").on(t.organizationId)]
+);
+
+export const STOCK_ALERT_KINDS = ["expired", "expiring", "out_of_stock", "low_stock"] as const;
+export type StockAlertKind = (typeof STOCK_ALERT_KINDS)[number];
+
+/**
+ * A stock alarm: an item that has expired, is about to, or has run out.
+ *
+ * One row per occurrence. It opens when the condition starts and is resolved
+ * (not deleted) when it stops, so a reagent that runs out twice raises two
+ * alarms and the history of both survives.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: id(),
+    organizationId: orgId(),
+    entityId: text("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: STOCK_ALERT_KINDS }).notNull(),
+    /** What it said when it was raised — kept for the history once it resolves. */
+    message: text("message").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at"),
+  },
+  (t) => [
+    index("notifications_org_idx").on(t.organizationId, t.createdAt),
+    // At most one open alarm of a kind per item, even if two requests evaluate at once.
+    uniqueIndex("notifications_open_idx")
+      .on(t.entityId, t.kind)
+      .where(sql`${t.resolvedAt} IS NULL`),
+  ]
+);
+
+/** Who has seen which alarm. */
+export const notificationReads = pgTable(
+  "notification_reads",
+  {
+    notificationId: text("notification_id")
+      .notNull()
+      .references(() => notifications.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    readAt: timestamp("read_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.notificationId, t.userId] })]
 );

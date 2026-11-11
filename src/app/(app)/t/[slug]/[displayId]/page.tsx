@@ -8,7 +8,7 @@ import { getEntityTypeBySlug, getEntity, getChildren } from "@/lib/services/enti
 import { listLocations, getLocationPath } from "@/lib/services/locations";
 import { listAttachments } from "@/lib/services/attachments";
 import { listAudit } from "@/lib/services/audit";
-import { getInventoryForEntity } from "@/lib/services/inventory";
+import { entityHasMovements, getInventoryForEntity } from "@/lib/services/inventory";
 import { listProjects } from "@/lib/services/projects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,8 @@ import { ActorChip } from "@/components/actor-chip";
 import { EntityDetailActions } from "./detail-actions";
 import { AttachmentsPanel } from "./attachments-panel";
 import { StockPanel } from "./stock-panel";
+import { StockStatus } from "@/components/stock-status";
+import { formatExpiryDate } from "@/lib/stock-alerts";
 
 export default async function EntityDetailPage({
   params,
@@ -35,13 +37,14 @@ export default async function EntityDetailPage({
     getEntity(ctx.orgId, displayId, ctx.projectIds).catch(notFoundOn404),
   ]);
 
-  const [children, locations, files, history, inventory, projects] = await Promise.all([
+  const [children, locations, files, history, inventory, projects, stocked] = await Promise.all([
     getChildren(ctx.orgId, entity.id),
     listLocations(ctx.orgId),
     listAttachments(ctx.orgId, entity.id),
     listAudit(ctx.orgId, { targetId: entity.id, limit: 50 }),
     getInventoryForEntity(ctx.orgId, entity.id),
     listProjects(ctx.orgId),
+    entityHasMovements(ctx.orgId, entity.id),
   ]);
 
   const labelSvg = await qrSvg(entity.displayId, 112);
@@ -135,12 +138,27 @@ export default async function EntityDetailPage({
                 )}
               </Field>
               {inventory && (
-                <Field label="Quantity">
-                  {inventory.quantity} {inventory.unit}
-                  {inventory.lot && (
-                    <span className="ml-2 text-muted-foreground">lot {inventory.lot}</span>
-                  )}
-                </Field>
+                <>
+                  <Field label="Quantity">
+                    {inventory.quantity} {inventory.unit}
+                    {inventory.lot && (
+                      <span className="ml-2 text-muted-foreground">lot {inventory.lot}</span>
+                    )}
+                  </Field>
+                  <Field label="Stock status">
+                    <StockStatus item={{ ...inventory, name: entity.name, hasMovements: stocked }} />
+                  </Field>
+                  <Field label="Expires">
+                    {inventory.expiresAt ? (
+                      formatExpiryDate(inventory.expiresAt)
+                    ) : (
+                      <span className="text-muted-foreground">Not set — add it in Stock settings</span>
+                    )}
+                  </Field>
+                  <Field label="Low at / zero point">
+                    {inventory.minThreshold ?? "—"} / {inventory.zeroPoint} {inventory.unit}
+                  </Field>
+                </>
               )}
               <Field label="Created">{entity.createdAt.toLocaleString()}</Field>
               {type.fields.map((f) => (
@@ -202,7 +220,18 @@ export default async function EntityDetailPage({
           entityId={entity.id}
           slug={slug}
           displayId={entity.displayId}
-          stock={inventory ? { quantity: inventory.quantity, unit: inventory.unit } : null}
+          stock={
+            inventory
+              ? {
+                  quantity: inventory.quantity,
+                  unit: inventory.unit,
+                  minThreshold: inventory.minThreshold,
+                  zeroPoint: inventory.zeroPoint,
+                  lot: inventory.lot,
+                  expiresAt: formatExpiryDate(inventory.expiresAt),
+                }
+              : null
+          }
           locations={locations.map((l) => ({
             id: l.id,
             name: l.name,

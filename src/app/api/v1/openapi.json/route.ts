@@ -89,6 +89,13 @@ const spec = {
                   parent_id: { type: "string", description: "Derive from an existing record" },
                   quantity: { type: "string" },
                   unit: { type: "string" },
+                  min_threshold: { type: "string", description: "Low-stock warning level" },
+                  zero_point: {
+                    type: "string",
+                    description: "Level at which the item counts as out of stock (default 0)",
+                  },
+                  lot: { type: "string" },
+                  expires_at: { type: "string", format: "date", example: "2027-03-31" },
                 },
               },
             },

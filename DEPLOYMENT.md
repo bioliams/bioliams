@@ -94,5 +94,20 @@ Attachments are written to the `uploads` volume on local disk — no object stor
 | `SUPABASE_SERVICE_ROLE_KEY` | no | Paired with `SUPABASE_URL` |
 | `SUPABASE_STORAGE_BUCKET` | no | Bucket name (default `attachments`) |
 | `DATABASE_POOLED` | no | Force pooled-connection mode if autodetection misses your pooler |
+| `CRON_SECRET` | no | Guards `/api/cron/stock-alerts`, the daily sweep that raises expiry alarms and emails them |
+| `RESEND_API_KEY` | no | Sends alarm and request emails; without it alarms only appear in the app |
+
+### Stock alarms
+
+Alarms (expired, expiring within 30 days, low, out of stock at the zero point) are
+re-evaluated whenever anyone loads the app. Expiry also needs a daily run in case
+nobody does: `vercel.json` schedules `/api/cron/stock-alerts` at 06:00 UTC, and
+Vercel sends `CRON_SECRET` automatically. Self-hosted, call it from crontab:
+
+```
+0 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://your-lab.example/api/cron/stock-alerts
+```
+
+New alarms are emailed to owners, admins and storage managers.
 
 Rotating `BETTER_AUTH_SECRET` invalidates every active session.

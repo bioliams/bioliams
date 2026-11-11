@@ -12,6 +12,14 @@ import { GlobalSearch } from "@/components/global-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
+import { after } from "next/server";
+import { NotificationBell } from "@/components/notification-bell";
+import {
+  countUnread,
+  emailAlarms,
+  listNotifications,
+  syncStockAlerts,
+} from "@/lib/services/notifications";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrg();
@@ -21,10 +29,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     listEntityTypes(ctx.orgId),
   ]);
 
+  // Re-evaluate alarms on every load: stock changes through many paths, and
+  // expiry changes with nothing but the date. Email goes out after the
+  // response so nobody waits on the mail server.
+  const raised = await syncStockAlerts(ctx.orgId);
+  if (raised.length > 0) after(() => emailAlarms(ctx.orgId, raised));
+  const [unread, recentAlarms] = await Promise.all([
+    countUnread(ctx.orgId, ctx.userId, ctx.projectIds),
+    listNotifications(ctx.orgId, ctx.userId, ctx.projectIds, { open: true, limit: 8 }),
+  ]);
+
   const navSections: NavSection[] = [
     {
       links: [
         { href: "/", label: "Dashboard" },
+        { href: "/notifications", label: "Notifications" },
         { href: "/scan", label: "Scan a label" },
         { href: "/locations", label: "Storage" },
         { href: "/inventory", label: "Inventory" },
@@ -64,6 +83,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <nav className="flex-1 space-y-6 overflow-y-auto p-3 text-sm">
           <div className="space-y-1">
             <NavLink href="/">Dashboard</NavLink>
+            <NavLink href="/notifications">
+              Notifications
+              {unread > 0 && (
+                <span className="ml-2 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  {unread}
+                </span>
+              )}
+            </NavLink>
             <NavLink href="/scan">Scan a label</NavLink>
             <NavLink href="/locations">Storage</NavLink>
             <NavLink href="/inventory" exact>
@@ -115,6 +142,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex items-center gap-1">
             <GlobalSearch />
+            <NotificationBell
+              unread={unread}
+              items={recentAlarms.map((n) => ({
+                id: n.id,
+                kind: n.kind,
+                message: n.message,
+                href: `/t/${n.typeSlug}/${n.displayId}`,
+                read: n.read,
+              }))}
+            />
             <ThemeToggle />
             <Button variant="ghost" size="icon" asChild aria-label="Scan a label">
               <Link href="/scan">

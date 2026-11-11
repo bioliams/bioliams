@@ -44,6 +44,10 @@ export const POST = withApiAuth(async (req, ctx) => {
     parentId: body.parent_id ?? null,
     quantity: body.quantity,
     unit: body.unit,
+    minThreshold: body.min_threshold ?? null,
+    zeroPoint: body.zero_point ?? null,
+    lot: body.lot ?? null,
+    expiresAt: body.expires_at ?? null,
   });
 
   return NextResponse.json(

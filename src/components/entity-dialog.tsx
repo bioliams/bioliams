@@ -65,6 +65,10 @@ export function EntityDialog({ open, onOpenChange, type, locations, entity }: En
   const [data, setData] = useState<Record<string, unknown>>(entity?.data ?? {});
   const [quantity, setQuantity] = useState("0");
   const [unit, setUnit] = useState("units");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [minThreshold, setMinThreshold] = useState("");
+  const [zeroPoint, setZeroPoint] = useState("0");
+  const [lot, setLot] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
 
@@ -99,7 +103,9 @@ export function EntityDialog({ open, onOpenChange, type, locations, entity }: En
           status,
           data,
           ...where,
-          ...(type.isInventory ? { quantity, unit } : {}),
+          ...(type.isInventory
+            ? { quantity, unit, expiresAt, minThreshold, zeroPoint, lot: lot.trim() || null }
+            : {}),
         });
 
     setPending(false);
@@ -211,6 +217,45 @@ export function EntityDialog({ open, onOpenChange, type, locations, entity }: En
               <div className="space-y-2">
                 <Label htmlFor="entity-unit">Unit</Label>
                 <Input id="entity-unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="entity-expires">Expiry date</Label>
+                <Input
+                  id="entity-expires"
+                  type="date"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                />
+                {errors.expiresAt && <p className="text-xs text-red-600">{errors.expiresAt}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="entity-lot">Lot</Label>
+                <Input id="entity-lot" value={lot} onChange={(e) => setLot(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="entity-min">Low at</Label>
+                <Input
+                  id="entity-min"
+                  type="number"
+                  step="any"
+                  min="0"
+                  placeholder="No warning"
+                  value={minThreshold}
+                  onChange={(e) => setMinThreshold(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="entity-zero" title="Counts as out of stock at or below this level">
+                  Zero point
+                </Label>
+                <Input
+                  id="entity-zero"
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={zeroPoint}
+                  onChange={(e) => setZeroPoint(e.target.value)}
+                />
               </div>
             </div>
           )}

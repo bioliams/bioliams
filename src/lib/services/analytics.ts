@@ -1,6 +1,7 @@
 import "server-only";
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { needsRestock } from "./inventory";
 import {
   entities,
   entityTypes,
@@ -100,7 +101,7 @@ export async function summaryNumbers(orgId: string) {
       .where(
         and(
           eq(inventoryItems.organizationId, orgId),
-          sql`${inventoryItems.minThreshold} IS NOT NULL AND ${inventoryItems.quantity} <= ${inventoryItems.minThreshold}`
+          needsRestock()
         )
       ),
     db

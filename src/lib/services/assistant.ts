@@ -104,7 +104,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "low_stock",
-      description: "List every inventory item at or below its minimum threshold.",
+      description: "List every inventory item that is low (at or below its minimum) or out of stock (at or below its zero point).",
       parameters: { type: "object", properties: {} },
     },
   },
@@ -162,6 +162,8 @@ async function runTool(
         status: entity.status,
         stock: stock ? `${stock.quantity} ${stock.unit}` : null,
         minThreshold: stock?.minThreshold ?? null,
+        outOfStockAt: stock?.zeroPoint ?? null,
+        expires: stock?.expiresAt ? stock.expiresAt.toISOString().slice(0, 10) : null,
         fields: entity.data,
         storagePath: path.map((l) => l.name).join(" › ") || null,
         parentId: entity.parentId,
@@ -176,6 +178,8 @@ async function runTool(
         name: entity.name,
         quantity: `${item.quantity} ${item.unit}`,
         minimum: item.minThreshold,
+        outOfStockAt: item.zeroPoint,
+        expires: item.expiresAt ? item.expiresAt.toISOString().slice(0, 10) : null,
       }));
     }
     case "recent_stock_activity": {

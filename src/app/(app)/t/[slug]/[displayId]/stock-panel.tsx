@@ -24,7 +24,19 @@ import {
 } from "./stock-actions";
 import { setEntityProjectAction } from "@/app/(app)/settings/projects/actions";
 
-type Mode = "discard" | "return" | "transfer" | null;
+import { updateInventoryAction } from "@/app/(app)/inventory/actions";
+
+type Mode = "discard" | "return" | "transfer" | "settings" | null;
+
+export interface StockInfo {
+  quantity: string;
+  unit: string;
+  minThreshold: string | null;
+  zeroPoint: string;
+  lot: string | null;
+  /** YYYY-MM-DD, or "" when not set. */
+  expiresAt: string;
+}
 
 /**
  * The movements a record can go through that aren't ordinary consumption:
@@ -46,7 +58,7 @@ export function StockPanel({
   entityId: string;
   slug: string;
   displayId: string;
-  stock: { quantity: string; unit: string } | null;
+  stock: StockInfo | null;
   locations: { id: string; name: string; kind: string }[];
   currentLocationId: string | null;
   custody: { holderName: string | null; isMine: boolean; since: string | null };
@@ -60,11 +72,29 @@ export function StockPanel({
   const [note, setNote] = useState("");
   const [destination, setDestination] = useState(currentLocationId ?? "");
   const [pending, startTransition] = useTransition();
+  const [settings, setSettings] = useState({
+    unit: stock?.unit ?? "",
+    minThreshold: stock?.minThreshold ?? "",
+    zeroPoint: stock?.zeroPoint ?? "0",
+    lot: stock?.lot ?? "",
+    expiresAt: stock?.expiresAt ?? "",
+  });
 
   function close() {
     setMode(null);
     setAmount("1");
     setNote("");
+  }
+
+  function openSettings() {
+    setSettings({
+      unit: stock?.unit ?? "",
+      minThreshold: stock?.minThreshold ?? "",
+      zeroPoint: stock?.zeroPoint ?? "0",
+      lot: stock?.lot ?? "",
+      expiresAt: stock?.expiresAt ?? "",
+    });
+    setMode("settings");
   }
 
   function run(fn: () => Promise<{ error?: string }>, success: string) {
@@ -91,6 +121,8 @@ export function StockPanel({
         () => returnStockAction(entityId, slug, displayId, amount, note),
         `Returned ${amount} ${stock?.unit ?? ""}`
       );
+    } else if (mode === "settings") {
+      run(() => updateInventoryAction(entityId, settings), "Stock settings saved");
     } else if (mode === "transfer") {
       run(
         () => transferAction(entityId, slug, displayId, destination || null, note),
@@ -170,6 +202,9 @@ export function StockPanel({
               </Button>
               {stock && (
                 <>
+                  <Button variant="outline" size="sm" onClick={openSettings}>
+                    Stock settings
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setMode("return")}>
                     Return unused
                   </Button>
@@ -195,17 +230,77 @@ export function StockPanel({
                 ? "Discard stock"
                 : mode === "return"
                   ? "Return unused stock"
-                  : "Move this record"}
+                  : mode === "settings"
+                    ? "Stock settings"
+                    : "Move this record"}
             </DialogTitle>
             <DialogDescription>
               {mode === "discard"
                 ? "Expired, contaminated or spilt. Kept separate from usage so consumption rates stay honest."
                 : mode === "return"
                   ? "Stock that came back to the shelf unused."
-                  : "Recorded as a movement, so the history shows where it went and when."}
+                  : mode === "settings"
+                    ? "When this item should raise an alarm. Leave the expiry blank if it doesn't go off."
+                    : "Recorded as a movement, so the history shows where it went and when."}
             </DialogDescription>
           </DialogHeader>
 
+          {mode === "settings" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 space-y-1.5">
+                <Label htmlFor="stock-expires">Expiry date</Label>
+                <Input
+                  id="stock-expires"
+                  type="date"
+                  value={settings.expiresAt}
+                  onChange={(e) => setSettings((s) => ({ ...s, expiresAt: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="stock-min">Low at ({settings.unit})</Label>
+                <Input
+                  id="stock-min"
+                  type="number"
+                  step="any"
+                  min="0"
+                  placeholder="No warning"
+                  value={settings.minThreshold}
+                  onChange={(e) => setSettings((s) => ({ ...s, minThreshold: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="stock-zero">Zero point ({settings.unit})</Label>
+                <Input
+                  id="stock-zero"
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={settings.zeroPoint}
+                  onChange={(e) => setSettings((s) => ({ ...s, zeroPoint: e.target.value }))}
+                />
+              </div>
+              <p className="col-span-2 -mt-1 text-xs text-muted-foreground">
+                At or below the zero point the item counts as out of stock — set it above 0 for
+                dead volume you can&rsquo;t draw.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="stock-unit">Unit</Label>
+                <Input
+                  id="stock-unit"
+                  value={settings.unit}
+                  onChange={(e) => setSettings((s) => ({ ...s, unit: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="stock-lot">Lot</Label>
+                <Input
+                  id="stock-lot"
+                  value={settings.lot}
+                  onChange={(e) => setSettings((s) => ({ ...s, lot: e.target.value }))}
+                />
+              </div>
+            </div>
+          ) : (
           <div className="space-y-3">
             {mode !== "transfer" && (
               <div className="space-y-1.5">
@@ -260,6 +355,7 @@ export function StockPanel({
               />
             </div>
           </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={close} disabled={pending}>
@@ -269,7 +365,7 @@ export function StockPanel({
               onClick={submit}
               disabled={pending || (mode === "discard" && !note.trim())}
             >
-              {pending ? "Recording…" : "Record"}
+              {pending ? "Saving…" : mode === "settings" ? "Save" : "Record"}
             </Button>
           </DialogFooter>
         </DialogContent>

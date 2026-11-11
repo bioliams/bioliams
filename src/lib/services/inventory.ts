@@ -11,6 +11,19 @@ import {
 } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
 import { createEntity, ServiceError } from "./entities";
+import { formatExpiryDate, parseExpiryDate } from "@/lib/stock-alerts";
+
+/** Whether any stock movement was ever recorded against the item. */
+export const hasMovements = () =>
+  sql<boolean>`exists (select 1 from ${inventoryEvents} where ${inventoryEvents.entityId} = ${inventoryItems.entityId})`;
+
+/**
+ * SQL twin of `evaluateStock`'s level check: low, or out at the zero point —
+ * but only for items that ever held stock, so records registered at the
+ * default 0 and never counted don't read as "run out".
+ */
+export const needsRestock = () =>
+  sql`((${inventoryItems.quantity} > 0 OR ${hasMovements()}) AND (${inventoryItems.quantity} <= ${inventoryItems.zeroPoint} OR (${inventoryItems.minThreshold} IS NOT NULL AND ${inventoryItems.quantity} <= ${inventoryItems.minThreshold})))`;
 
 export async function listInventory(orgId: string) {
   return db
@@ -20,6 +33,7 @@ export async function listInventory(orgId: string) {
       typeName: entityTypes.name,
       typeSlug: entityTypes.slug,
       locationName: locations.name,
+      hasMovements: hasMovements(),
     })
     .from(inventoryItems)
     .innerJoin(entities, eq(inventoryItems.entityId, entities.id))
@@ -29,7 +43,7 @@ export async function listInventory(orgId: string) {
     .orderBy(entities.name);
 }
 
-/** Items at or below their configured minimum threshold. */
+/** Items at or below their low-stock level, or out of stock at their zero point. */
 export async function listLowStock(orgId: string) {
   return db
     .select({
@@ -44,9 +58,18 @@ export async function listLowStock(orgId: string) {
       and(
         eq(inventoryItems.organizationId, orgId),
         isNull(entities.deletedAt),
-        sql`${inventoryItems.minThreshold} IS NOT NULL AND ${inventoryItems.quantity} <= ${inventoryItems.minThreshold}`
+        needsRestock()
       )
     );
+}
+
+export async function entityHasMovements(orgId: string, entityId: string) {
+  const [row] = await db
+    .select({ id: inventoryEvents.id })
+    .from(inventoryEvents)
+    .where(and(eq(inventoryEvents.organizationId, orgId), eq(inventoryEvents.entityId, entityId)))
+    .limit(1);
+  return Boolean(row);
 }
 
 export async function getInventoryForEntity(orgId: string, entityId: string) {
@@ -58,20 +81,97 @@ export async function getInventoryForEntity(orgId: string, entityId: string) {
   return rows[0] ?? null;
 }
 
+export interface StockSettingsInput {
+  quantity?: string;
+  unit?: string;
+  minThreshold?: string | null;
+  /** Out-of-stock level; blank means 0. */
+  zeroPoint?: string | null;
+  lot?: string | null;
+  /** YYYY-MM-DD, or blank/null to clear. */
+  expiresAt?: string | null;
+}
+
+/**
+ * Validate the editable stock settings into a column patch. Only keys present
+ * in the input appear in the result, so callers can update one field at a time.
+ */
+export function parseStockSettings(input: StockSettingsInput) {
+  const patch: {
+    quantity?: string;
+    unit?: string;
+    minThreshold?: string | null;
+    zeroPoint?: string;
+    lot?: string | null;
+    expiresAt?: Date | null;
+  } = {};
+  const errors: Record<string, string> = {};
+
+  const number = (key: string, raw: string, allowNegative = false) => {
+    const n = Number(raw);
+    if (!raw.trim() || !Number.isFinite(n) || (!allowNegative && n < 0)) {
+      errors[key] = "Enter a number of zero or more";
+      return null;
+    }
+    return raw.trim();
+  };
+
+  if (input.quantity !== undefined) {
+    const v = number("quantity", input.quantity);
+    if (v !== null) patch.quantity = v;
+  }
+  if (input.unit !== undefined) {
+    if (!input.unit.trim()) errors.unit = "Give a unit";
+    else patch.unit = input.unit.trim();
+  }
+  if (input.minThreshold !== undefined) {
+    if (input.minThreshold === null || !input.minThreshold.trim()) patch.minThreshold = null;
+    else {
+      const v = number("minThreshold", input.minThreshold);
+      if (v !== null) patch.minThreshold = v;
+    }
+  }
+  if (input.zeroPoint !== undefined) {
+    if (input.zeroPoint === null || !input.zeroPoint.trim()) patch.zeroPoint = "0";
+    else {
+      const v = number("zeroPoint", input.zeroPoint);
+      if (v !== null) patch.zeroPoint = v;
+    }
+  }
+  if (input.lot !== undefined) patch.lot = input.lot?.trim() || null;
+  if (input.expiresAt !== undefined) {
+    const d = parseExpiryDate(input.expiresAt);
+    if (d && Number.isNaN(d.getTime())) errors.expiresAt = "Use a date like 2027-03-31";
+    else patch.expiresAt = d;
+  }
+
+  if (Object.keys(errors).length > 0) {
+    throw new ServiceError(Object.values(errors)[0], 400, errors);
+  }
+  return patch;
+}
+
+function stockSnapshot(row: typeof inventoryItems.$inferSelect) {
+  return {
+    quantity: row.quantity,
+    unit: row.unit,
+    minimum: row.minThreshold,
+    zeroPoint: row.zeroPoint,
+    lot: row.lot,
+    expires: formatExpiryDate(row.expiresAt) || null,
+  };
+}
+
 export async function updateInventory(
   orgId: string,
   actorId: string | null,
   entityId: string,
-  input: { quantity?: string; unit?: string; minThreshold?: string | null; lot?: string | null }
+  input: StockSettingsInput
 ) {
   const before = await getInventoryForEntity(orgId, entityId);
   if (!before) throw new ServiceError("This record does not track inventory", 404);
 
-  const patch: Record<string, unknown> = { updatedAt: new Date() };
-  if (input.quantity !== undefined) patch.quantity = input.quantity;
-  if (input.unit !== undefined) patch.unit = input.unit;
-  if (input.minThreshold !== undefined) patch.minThreshold = input.minThreshold;
-  if (input.lot !== undefined) patch.lot = input.lot;
+  const patch: Record<string, unknown> = { updatedAt: new Date(), ...parseStockSettings(input) };
 
   const [row] = await db
     .update(inventoryItems)
@@ -95,8 +195,8 @@ export async function updateInventory(
     targetId: entityId,
     targetLabel: entity ? `${entity.displayId} ${entity.name}` : undefined,
     diff: {
-      before: { quantity: before.quantity, unit: before.unit },
-      after: { quantity: row.quantity, unit: row.unit },
+      before: stockSnapshot(before),
+      after: stockSnapshot(row),
     },
   });
 

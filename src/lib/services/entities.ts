@@ -9,6 +9,7 @@ import { ServiceError } from "@/lib/service-error";
 import { projectScope } from "./projects";
 import { assertPositionAvailable } from "./locations";
 import { wellLabel } from "@/lib/well";
+import { parseExpiryDate } from "@/lib/stock-alerts";
 
 function positionText(e: { positionRow: number | null; positionCol: number | null }) {
   return e.positionRow != null && e.positionCol != null ? wellLabel(e.positionRow, e.positionCol) : null;
@@ -65,8 +66,10 @@ export interface CreateEntityInput {
   quantity?: string | null;
   unit?: string | null;
   minThreshold?: string | null;
+  zeroPoint?: string | null;
   lot?: string | null;
-  expiresAt?: Date | null;
+  /** A Date from internal callers, or YYYY-MM-DD from forms and the API. */
+  expiresAt?: Date | string | null;
 }
 
 export async function createEntity(
@@ -83,6 +86,17 @@ export async function createEntity(
   const { data, errors } = validateEntityData(type.fields, input.data ?? {});
   if (errors) throw new ServiceError("Validation failed", 400, errors);
   if (!input.name?.trim()) throw new ServiceError("Validation failed", 400, { name: "Name is required" });
+  const expiresAt =
+    typeof input.expiresAt === "string" ? parseExpiryDate(input.expiresAt) : input.expiresAt;
+  if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+    throw new ServiceError("Validation failed", 400, { expiresAt: "Use a date like 2027-03-31" });
+  }
+  for (const key of ["quantity", "minThreshold", "zeroPoint"] as const) {
+    const raw = input[key] == null ? "" : String(input[key]);
+    if (raw.trim() && !(Number(raw) >= 0)) {
+      throw new ServiceError("Validation failed", 400, { [key]: "Enter a number of zero or more" });
+    }
+  }
 
   const run = async (tx: Tx) => {
     await assertPositionAvailable(
@@ -114,9 +128,10 @@ export async function createEntity(
         entityId: row.id,
         quantity: input.quantity ?? "0",
         unit: input.unit ?? "units",
-        minThreshold: input.minThreshold ?? null,
+        minThreshold: input.minThreshold == null ? null : String(input.minThreshold).trim() || null,
+        zeroPoint: input.zeroPoint == null ? "0" : String(input.zeroPoint).trim() || "0",
         lot: input.lot ?? null,
-        expiresAt: input.expiresAt ?? null,
+        expiresAt: expiresAt ?? null,
       });
     }
 

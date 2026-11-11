@@ -1,12 +1,13 @@
 import "server-only";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db } from "@/db";
+import { db, type Tx } from "@/db";
 import {
   biobankRequests,
   biobankRequestItems,
   entities,
   entityTypes,
+  inventoryItems,
   locations,
   organization,
   user,
@@ -18,6 +19,7 @@ import { escapeHtml, sendEmail } from "@/lib/email";
 import { baseUrl } from "@/lib/auth";
 import { wellLabel } from "@/lib/well";
 import { projectScope } from "./projects";
+import { consumeInTx } from "./inventory";
 
 const handler = alias(user, "handler");
 
@@ -39,7 +41,12 @@ export async function listBiobankRequests(orgId: string) {
   const items = ids.length
     ? await db
         .select({
+          id: biobankRequestItems.id,
           requestId: biobankRequestItems.requestId,
+          quantity: biobankRequestItems.quantity,
+          takenQuantity: biobankRequestItems.takenQuantity,
+          stockQuantity: inventoryItems.quantity,
+          stockUnit: inventoryItems.unit,
           displayId: entities.displayId,
           name: entities.name,
           typeSlug: entityTypes.slug,
@@ -51,6 +58,7 @@ export async function listBiobankRequests(orgId: string) {
         .innerJoin(entities, eq(biobankRequestItems.entityId, entities.id))
         .innerJoin(entityTypes, eq(entities.entityTypeId, entityTypes.id))
         .leftJoin(locations, eq(entities.locationId, locations.id))
+        .leftJoin(inventoryItems, eq(inventoryItems.entityId, entities.id))
         .where(inArray(biobankRequestItems.requestId, ids))
     : [];
 
@@ -64,6 +72,11 @@ export async function listBiobankRequests(orgId: string) {
   return rows.map((r) => ({
     ...r,
     items: (itemsFor.get(r.request.id) ?? []).map((i) => ({
+      id: i.id,
+      quantity: i.quantity,
+      takenQuantity: i.takenQuantity,
+      // Null when the record's type doesn't track stock.
+      stock: i.stockUnit != null ? { quantity: i.stockQuantity!, unit: i.stockUnit } : null,
       displayId: i.displayId,
       name: i.name,
       href: `/t/${i.typeSlug}/${i.displayId}`,
@@ -80,8 +93,19 @@ export interface BiobankRequestInput {
   title: string;
   details?: string | null;
   neededBy?: string | null; // yyyy-mm-dd
-  /** Display IDs (e.g. SMP-000012) of specific records being asked for. */
-  recordIds?: string[];
+  /**
+   * Specific records being asked for, by display ID (e.g. SMP-000012), with
+   * how much of each when the record tracks stock.
+   */
+  items?: { displayId: string; quantity?: string | null }[];
+}
+
+function parseAmount(raw: string | null | undefined): string | null {
+  const text = raw?.trim();
+  if (!text) return null;
+  const n = Number(text);
+  if (!Number.isFinite(n) || n <= 0) return "invalid";
+  return text;
 }
 
 export async function createBiobankRequest(
@@ -101,18 +125,31 @@ export async function createBiobankRequest(
     }
   }
 
-  const wanted = [...new Set((input.recordIds ?? []).map((s) => s.trim()).filter(Boolean))];
+  const amounts = new Map<string, string | null>();
+  for (const item of input.items ?? []) {
+    const displayId = item.displayId?.trim();
+    if (!displayId) continue;
+    const amount = parseAmount(item.quantity);
+    if (amount === "invalid") {
+      throw new ServiceError("Validation failed", 400, {
+        recordIds: `Amount for ${displayId} must be a number above zero`,
+      });
+    }
+    amounts.set(displayId, amount);
+  }
+  const wanted = [...amounts.keys()];
   if (wanted.length > 200) {
     throw new ServiceError("Validation failed", 400, { recordIds: "At most 200 records per request" });
   }
 
   return db.transaction(async (tx) => {
-    let found: { id: string; displayId: string }[] = [];
+    let found: { id: string; displayId: string; unit: string | null }[] = [];
     if (wanted.length) {
       const scope = projectScope(projectIds);
       found = await tx
-        .select({ id: entities.id, displayId: entities.displayId })
+        .select({ id: entities.id, displayId: entities.displayId, unit: inventoryItems.unit })
         .from(entities)
+        .leftJoin(inventoryItems, eq(inventoryItems.entityId, entities.id))
         .where(
           and(
             eq(entities.organizationId, orgId),
@@ -125,6 +162,12 @@ export async function createBiobankRequest(
       if (missing.length) {
         throw new ServiceError("Validation failed", 400, {
           recordIds: `Not found: ${missing.join(", ")}`,
+        });
+      }
+      const untracked = found.filter((f) => amounts.get(f.displayId) && f.unit == null);
+      if (untracked.length) {
+        throw new ServiceError("Validation failed", 400, {
+          recordIds: `${untracked.map((f) => f.displayId).join(", ")} doesn't track stock, so it can't take an amount`,
         });
       }
     }
@@ -143,7 +186,9 @@ export async function createBiobankRequest(
     if (found.length) {
       await tx
         .insert(biobankRequestItems)
-        .values(found.map((f) => ({ requestId: row.id, entityId: f.id })));
+        .values(
+          found.map((f) => ({ requestId: row.id, entityId: f.id, quantity: amounts.get(f.displayId) ?? null }))
+        );
     }
 
     await logAudit(
@@ -156,7 +201,10 @@ export async function createBiobankRequest(
         targetLabel: row.title,
         diff: {
           after: {
-            records: found.map((f) => f.displayId).join(", ") || null,
+            records:
+              found
+                .map((f) => (amounts.get(f.displayId) ? `${f.displayId} (${amounts.get(f.displayId)} ${f.unit})` : f.displayId))
+                .join(", ") || null,
             neededBy: input.neededBy || null,
           },
         },
@@ -177,7 +225,13 @@ export async function setBiobankStatus(
   actor: { id: string; canManage: boolean },
   id: string,
   to: BiobankStatus,
-  response?: string | null
+  response?: string | null,
+  /**
+   * When marking ready: how much to take from stock for each request item.
+   * Omitted means "what was asked for". Items already taken are skipped, so
+   * going back to processing and ready again never deducts twice.
+   */
+  take?: { itemId: string; amount: string | null }[]
 ) {
   const note = response?.trim() || null;
   if (needsResponse(to) && !note) {
@@ -206,6 +260,11 @@ export async function setBiobankStatus(
 
     const byBiobank = actor.canManage && to !== "cancelled";
     const now = new Date();
+
+    const taken: string[] = [];
+    if (to === "ready") {
+      taken.push(...(await takeFromStock(tx, orgId, actor.id, existing, take, now)));
+    }
     const [updated] = await tx
       .update(biobankRequests)
       .set({
@@ -232,6 +291,7 @@ export async function setBiobankStatus(
         diff: {
           before: { status: existing.status },
           after: { status: to, ...(note ? { note } : {}) },
+          ...(taken.length ? { takenFromStock: taken.join(", ") } : {}),
         },
       },
       tx
@@ -245,6 +305,63 @@ export async function setBiobankStatus(
     await notifyRequester(orgId, updated.requestedBy, updated.title, to, updated.response);
   }
   return updated;
+}
+
+async function takeFromStock(
+  tx: Tx,
+  orgId: string,
+  actorId: string,
+  request: typeof biobankRequests.$inferSelect,
+  take: { itemId: string; amount: string | null }[] | undefined,
+  now: Date
+) {
+  const items = await tx
+    .select({
+      id: biobankRequestItems.id,
+      entityId: biobankRequestItems.entityId,
+      quantity: biobankRequestItems.quantity,
+      takenAt: biobankRequestItems.takenAt,
+      displayId: entities.displayId,
+      unit: inventoryItems.unit,
+    })
+    .from(biobankRequestItems)
+    .innerJoin(entities, eq(biobankRequestItems.entityId, entities.id))
+    .leftJoin(inventoryItems, eq(inventoryItems.entityId, entities.id))
+    .where(eq(biobankRequestItems.requestId, request.id));
+
+  const asked = take ? new Map(take.map((t) => [t.itemId, t.amount])) : null;
+  for (const itemId of asked?.keys() ?? []) {
+    if (!items.some((i) => i.id === itemId)) throw new ServiceError("That sample isn't part of this request", 400);
+  }
+
+  let who = "";
+  if (request.requestedBy) {
+    const [requester] = await tx.select({ name: user.name }).from(user).where(eq(user.id, request.requestedBy));
+    if (requester?.name) who = ` (for ${requester.name})`;
+  }
+  const note = `Biobank request: ${request.title}${who}`;
+
+  const done: string[] = [];
+  for (const item of items) {
+    if (item.takenAt || item.unit == null) continue; // already taken, or no stock to take from
+    const raw = asked ? asked.get(item.id) ?? null : item.quantity;
+    const amount = parseAmount(raw);
+    if (amount === "invalid") {
+      throw new ServiceError("Validation failed", 400, {
+        take: `Amount for ${item.displayId} must be a number above zero`,
+      });
+    }
+    if (!amount) continue;
+    // Same deduction as "Use stock": refuses to go below zero, and the whole
+    // status change rolls back with it.
+    await consumeInTx(tx, orgId, actorId, item.entityId, amount, note);
+    await tx
+      .update(biobankRequestItems)
+      .set({ takenQuantity: amount, takenAt: now })
+      .where(eq(biobankRequestItems.id, item.id));
+    done.push(`${item.displayId} ${amount} ${item.unit}`);
+  }
+  return done;
 }
 
 async function notifyRequester(

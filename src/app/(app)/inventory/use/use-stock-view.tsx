@@ -34,6 +34,8 @@ export interface UsageEntry {
   entityName: string;
   displayId: string;
   actorName: string | null;
+  /** Why — e.g. "Biobank request: …" when a pickup took it. */
+  note: string | null;
   createdAt: string;
 }
 
@@ -264,6 +266,7 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
                 </span>
                 <span className="truncate">{e.entityName}</span>
                 <span className="font-mono text-xs text-muted-foreground">{e.displayId}</span>
+                {e.note && <span className="truncate text-xs text-muted-foreground">· {e.note}</span>}
                 <span className="ml-auto text-xs text-muted-foreground">
                   {tidy(e.quantityAfter)} {e.unit} left · {e.actorName ?? "Someone"} ·{" "}
                   {relativeTime(e.createdAt)}

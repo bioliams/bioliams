@@ -320,6 +320,11 @@ export const biobankRequestItems = pgTable(
     entityId: text("entity_id")
       .notNull()
       .references(() => entities.id, { onDelete: "cascade" }),
+    /** How much is asked for, in the record's stock unit; null for "the sample". */
+    quantity: numeric("quantity"),
+    /** What the biobank actually took from stock when it made this ready. Set once. */
+    takenQuantity: numeric("taken_quantity"),
+    takenAt: timestamp("taken_at"),
   },
   (t) => [uniqueIndex("biobank_request_items_unique_idx").on(t.requestId, t.entityId)]
 );

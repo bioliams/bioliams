@@ -32,6 +32,7 @@ export default async function UseStockPage() {
         entityName,
         displayId,
         actorName,
+        note: event.note,
         createdAt: event.createdAt.toISOString(),
       }))}
     />

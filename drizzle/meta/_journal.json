@@ -64,6 +64,13 @@
       "when": 1794373618609,
       "tag": "0008_smooth_blazing_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794375170719,
+      "tag": "0009_illegal_magik",
+      "breakpoints": true
     }
   ]
 }

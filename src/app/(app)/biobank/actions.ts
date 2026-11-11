@@ -27,7 +27,8 @@ export async function createBiobankRequestAction(input: BiobankRequestInput): Pr
 export async function setBiobankStatusAction(
   id: string,
   status: BiobankStatus,
-  response?: string | null
+  response?: string | null,
+  take?: { itemId: string; amount: string | null }[]
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   try {
@@ -39,11 +40,19 @@ export async function setBiobankStatusAction(
       { id: ctx.userId, canManage: can(ctx.role, "biobank:manage") },
       id,
       status,
-      response
+      response,
+      take
     );
     revalidatePath("/biobank");
+    // Marking ready can take stock, so the stock pages are stale too.
+    if (status === "ready") {
+      revalidatePath("/inventory");
+      revalidatePath("/inventory/use");
+      revalidatePath("/");
+    }
     return { ok: true };
   } catch (err) {
     return actionError(err);
   }
 }
+

@@ -40,7 +40,19 @@ export interface BiobankRow {
   requestedBy: string | null;
   requesterName: string | null;
   handlerName: string | null;
-  items: { displayId: string; name: string; href: string; where: string | null }[];
+  items: {
+    id: string;
+    displayId: string;
+    name: string;
+    href: string;
+    where: string | null;
+    /** Amount asked for, in the stock unit. */
+    quantity: string | null;
+    /** Amount the biobank took from stock when it made this ready. */
+    takenQuantity: string | null;
+    /** Current stock, or null when this record doesn't track stock. */
+    stock: { quantity: string; unit: string } | null;
+  }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -159,7 +171,11 @@ export function BiobankView({
       )}
 
       <NewRequestDialog open={creating} onOpenChange={setCreating} />
-      <MoveDialog move={moving} onClose={() => setMoving(null)} />
+      <MoveDialog
+        key={moving ? `${moving.row.id}:${moving.to}` : "none"}
+        move={moving}
+        onClose={() => setMoving(null)}
+      />
     </div>
   );
 }
@@ -213,6 +229,7 @@ function RequestCard({
                   {item.displayId}
                 </Link>
                 <span>{item.name}</span>
+                <StockNote item={item} open={OPEN_STATUSES.includes(row.status)} />
                 {item.where && (
                   <span className="ml-auto text-xs text-muted-foreground">{item.where}</span>
                 )}
@@ -252,6 +269,36 @@ function RequestCard({
   );
 }
 
+/** What this request means for the item's stock, in one short phrase. */
+function StockNote({ item, open }: { item: BiobankRow["items"][number]; open: boolean }) {
+  if (!item.stock) return null;
+  const unit = item.stock.unit;
+  if (item.takenQuantity) {
+    return (
+      <span className="text-xs text-emerald-700 dark:text-emerald-300">
+        {tidy(item.takenQuantity)} {unit} taken from stock
+      </span>
+    );
+  }
+  // Once a request is closed, today's stock level says nothing about it.
+  if (!open) return null;
+  const short = item.quantity !== null && Number(item.quantity) > Number(item.stock.quantity);
+  return (
+    <span className="text-xs text-muted-foreground">
+      {item.quantity && <>{tidy(item.quantity)} {unit} asked · </>}
+      <span className={cn(short && "font-medium text-red-600 dark:text-red-400")}>
+        {tidy(item.stock.quantity)} {unit} in stock
+      </span>
+    </span>
+  );
+}
+
+/** "50.000" and "50" are the same amount; show the shorter one. */
+function tidy(n: string) {
+  const x = Number(n);
+  return Number.isFinite(x) ? String(x) : n;
+}
+
 /**
  * Confirms a status change, with room for a note. Ready and declined are the
  * ones where a note matters most: where to collect, or why not.
@@ -268,6 +315,13 @@ function MoveDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const to = move?.to;
+  // Making it ready is when the samples leave the freezer, so that's when
+  // stock comes off. Only items that track stock and haven't been taken yet.
+  const takeable =
+    to === "ready" ? (move?.row.items ?? []).filter((i) => i.stock && !i.takenQuantity) : [];
+  const [amounts, setAmounts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(takeable.map((i) => [i.id, i.quantity ? tidy(i.quantity) : ""]))
+  );
   // Requesters cancelling or confirming pickup don't leave a note — that field
   // is the biobank's voice.
   const askNote = to === "ready" || to === "declined" || to === "processing";
@@ -276,12 +330,20 @@ function MoveDialog({
     e.preventDefault();
     if (!move) return;
     startTransition(async () => {
-      const result = await setBiobankStatusAction(move.row.id, move.to, askNote ? note : null);
+      const result = await setBiobankStatusAction(
+        move.row.id,
+        move.to,
+        askNote ? note : null,
+        takeable.length ? takeable.map((i) => ({ itemId: i.id, amount: amounts[i.id] ?? "" })) : undefined
+      );
       if (result.error) {
-        setError(result.fieldErrors?.response ?? result.error);
+        setError(result.fieldErrors?.response ?? result.fieldErrors?.take ?? result.error);
         return;
       }
-      toast.success(`${move.row.title} — ${STATUS_LABELS[move.to].toLowerCase()}`);
+      const took = takeable.filter((i) => Number(amounts[i.id]) > 0).length;
+      toast.success(`${move.row.title} — ${STATUS_LABELS[move.to].toLowerCase()}`, {
+        description: took ? `Taken from stock for ${took} sample${took === 1 ? "" : "s"}` : undefined,
+      });
       setNote("");
       setError(null);
       onClose();
@@ -306,6 +368,41 @@ function MoveDialog({
           <DialogDescription>{move?.row.title}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
+          {takeable.length > 0 && (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Take from stock</legend>
+              <p className="text-xs text-muted-foreground">
+                Deducted when you save, as if used on the Use stock page. Leave blank to take
+                nothing.
+              </p>
+              {move?.row.details && (
+                <p className="rounded-md bg-muted/50 px-2 py-1.5 text-xs whitespace-pre-wrap">
+                  <span className="font-medium">They asked: </span>
+                  {move.row.details}
+                </p>
+              )}
+              <ul className="space-y-1.5">
+                {takeable.map((item) => (
+                  <li key={item.id} className="flex items-center gap-2 text-sm">
+                    <span className="font-mono text-xs text-muted-foreground">{item.displayId}</span>
+                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                    <Input
+                      aria-label={`Amount of ${item.displayId} to take`}
+                      type="number"
+                      step="any"
+                      min="0"
+                      className="h-8 w-24"
+                      value={amounts[item.id] ?? ""}
+                      onChange={(e) => setAmounts((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                    />
+                    <span className="w-28 text-xs text-muted-foreground">
+                      {item.stock!.unit} of {tidy(item.stock!.quantity)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </fieldset>
+          )}
           {askNote && (
             <div className="space-y-1.5">
               <Label htmlFor="move-note">
@@ -392,6 +489,11 @@ function NewRequestDialog({
 
   const shown = query.trim().length < 2 ? [] : results.filter((r) => !picked.some((p) => p.displayId === r.displayId));
 
+  function pick(result: SearchResult) {
+    setPicked((prev) => [...prev, result]);
+    setQuery("");
+  }
+
   function reset() {
     setTitle("");
     setDetails("");
@@ -409,7 +511,8 @@ function NewRequestDialog({
         title,
         details,
         neededBy: neededBy || null,
-        recordIds: picked.map((p) => p.displayId),
+        // No amounts: how much comes off stock is the biobank's call when it's made ready.
+        items: picked.map((p) => ({ displayId: p.displayId })),
       });
       if (result.error) {
         setErrors(result.fieldErrors ?? {});
@@ -429,8 +532,8 @@ function NewRequestDialog({
         <DialogHeader>
           <DialogTitle>Request from the biobank</DialogTitle>
           <DialogDescription>
-            Say what you need. If you know which samples, add them — the biobank will see
-            exactly where each one is stored.
+            Say what you need. If you know which samples, add them, and put amounts or
+            volumes in the details.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
@@ -451,21 +554,19 @@ function NewRequestDialog({
           <div className="space-y-1.5">
             <Label htmlFor="bb-records">Specific samples (optional)</Label>
             {picked.length > 0 && (
-              <ul className="flex flex-wrap gap-1.5">
+              <ul className="divide-y rounded-md border text-sm">
                 {picked.map((p) => (
-                  <li
-                    key={p.displayId}
-                    className="flex items-center gap-1 rounded-full border bg-muted/50 py-0.5 pr-1 pl-2 text-xs"
-                  >
-                    <span className="font-mono">{p.displayId}</span>
-                    <span className="max-w-40 truncate">{p.name}</span>
+                  <li key={p.displayId} className="flex items-center gap-2 px-2 py-1.5">
+                    <span className="font-mono text-xs text-muted-foreground">{p.displayId}</span>
+                    <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                    <span className="text-xs text-muted-foreground">{p.typeName}</span>
                     <button
                       type="button"
                       aria-label={`Remove ${p.displayId}`}
-                      className="rounded-full p-0.5 hover:bg-muted"
+                      className="rounded-full p-1 hover:bg-muted"
                       onClick={() => setPicked((prev) => prev.filter((x) => x.displayId !== p.displayId))}
                     >
-                      <X className="size-3" />
+                      <X className="size-3.5" />
                     </button>
                   </li>
                 ))}
@@ -481,10 +582,7 @@ function NewRequestDialog({
                 // Enter picks the top match rather than sending a half-filled request.
                 if (e.key !== "Enter") return;
                 e.preventDefault();
-                if (shown[0]) {
-                  setPicked((prev) => [...prev, shown[0]]);
-                  setQuery("");
-                }
+                if (shown[0]) pick(shown[0]);
               }}
             />
             {shown.length > 0 && (
@@ -494,10 +592,7 @@ function NewRequestDialog({
                     <button
                       type="button"
                       className="flex w-full items-baseline gap-2 px-2 py-1.5 text-left hover:bg-muted"
-                      onClick={() => {
-                        setPicked((prev) => [...prev, r]);
-                        setQuery("");
-                      }}
+                      onClick={() => pick(r)}
                     >
                       <span className="font-mono text-xs text-muted-foreground">{r.displayId}</span>
                       <span className="flex-1 truncate">{r.name}</span>

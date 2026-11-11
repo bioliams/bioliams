@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq, count, isNull } from "drizzle-orm";
+import { and, eq, count, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { entityTypes, entities } from "@/db/schema";
+import { entityTypes, entities, inventoryItems } from "@/db/schema";
 import type { FieldDef, FieldType } from "@/db/schema/lims";
 import { logAudit } from "@/lib/audit";
 import { keyFromLabel } from "@/lib/entity-schema";
@@ -117,6 +117,18 @@ export async function updateEntityType(
     .set(patch)
     .where(and(eq(entityTypes.organizationId, orgId), eq(entityTypes.id, typeId)))
     .returning();
+
+  // Records registered before tracking was switched on have no stock row, and
+  // without one there's nowhere to put a quantity. Give them an empty one.
+  if (row.isInventory && !before.isInventory) {
+    await db.execute(sql`
+      insert into ${inventoryItems} (id, organization_id, entity_id, quantity, unit, updated_at)
+      select gen_random_uuid()::text, ${entities.organizationId}, ${entities.id}, 0, 'units', now()
+      from ${entities}
+      where ${entities.organizationId} = ${orgId} and ${entities.entityTypeId} = ${typeId}
+      on conflict (entity_id) do nothing
+    `);
+  }
 
   await logAudit({
     orgId,

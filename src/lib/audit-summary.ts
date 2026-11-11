@@ -110,7 +110,8 @@ export function summariseAudit(action: string, diff: Diff): string {
     case "inventory.consume": {
       const used = show(diff.used);
       const remaining = show(diff.remaining);
-      return `Used ${used} · ${remaining} left`;
+      const base = `Used ${used} · ${remaining} left`;
+      return diff.note ? `${base} · ${show(diff.note)}` : base;
     }
     case "inventory.discard":
     case "inventory.return": {

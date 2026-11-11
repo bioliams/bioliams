@@ -149,12 +149,28 @@ export async function consumeInventoryMany(
   );
 }
 
+/**
+ * Deduct inside a caller's transaction — for flows like biobank pickups that
+ * take stock as part of something bigger. `note` says what it was used for.
+ */
+export async function consumeInTx(
+  tx: Tx,
+  orgId: string,
+  actorId: string | null,
+  entityId: string,
+  amount: string,
+  note?: string | null
+) {
+  return consumeOne(tx, orgId, actorId, entityId, amount, note);
+}
+
 async function consumeOne(
   tx: Tx,
   orgId: string,
   actorId: string | null,
   entityId: string,
-  amount: string
+  amount: string,
+  note?: string | null
 ) {
   const parsed = Number(amount);
   if (!amount.trim() || !Number.isFinite(parsed) || parsed <= 0) {
@@ -206,6 +222,7 @@ async function consumeOne(
     entityId,
     kind: "consume",
     delta: sql`-${amount}::numeric`,
+    note: note ?? null,
     quantityAfter: row.quantity,
     unit: row.unit,
     actorId,
@@ -219,7 +236,11 @@ async function consumeOne(
       targetKind: "inventory",
       targetId: entityId,
       targetLabel: entity ? `${entity.displayId} ${entity.name}` : undefined,
-      diff: { used: `${amount} ${row.unit}`, remaining: `${row.quantity} ${row.unit}` },
+      diff: {
+        used: `${amount} ${row.unit}`,
+        remaining: `${row.quantity} ${row.unit}`,
+        ...(note ? { note } : {}),
+      },
     },
     tx
   );

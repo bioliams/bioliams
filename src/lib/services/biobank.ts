@@ -231,7 +231,7 @@ export async function setBiobankStatus(
    * Omitted means "what was asked for". Items already taken are skipped, so
    * going back to processing and ready again never deducts twice.
    */
-  take?: { itemId: string; amount: string | null }[]
+  take?: TakeEntry[]
 ) {
   const note = response?.trim() || null;
   if (needsResponse(to) && !note) {
@@ -307,15 +307,23 @@ export async function setBiobankStatus(
   return updated;
 }
 
+/**
+ * One line of "take from stock": either an item already on the request
+ * (`itemId`), or any stock-tracked record the biobank adds while pulling it
+ * (`entityId`) — requests are often free text, so the biobank decides what
+ * actually comes off the shelf.
+ */
+export type TakeEntry = { itemId?: string; entityId?: string; amount: string | null };
+
 async function takeFromStock(
   tx: Tx,
   orgId: string,
   actorId: string,
   request: typeof biobankRequests.$inferSelect,
-  take: { itemId: string; amount: string | null }[] | undefined,
+  take: TakeEntry[] | undefined,
   now: Date
 ) {
-  const items = await tx
+  const loadItems = () => tx
     .select({
       id: biobankRequestItems.id,
       entityId: biobankRequestItems.entityId,
@@ -328,10 +336,42 @@ async function takeFromStock(
     .innerJoin(entities, eq(biobankRequestItems.entityId, entities.id))
     .leftJoin(inventoryItems, eq(inventoryItems.entityId, entities.id))
     .where(eq(biobankRequestItems.requestId, request.id));
+  let items = await loadItems();
 
-  const asked = take ? new Map(take.map((t) => [t.itemId, t.amount])) : null;
+  // Records the biobank added: attach them to the request first, so what was
+  // handed over is on record alongside what was asked for.
+  const extras = (take ?? []).filter((t) => !t.itemId && t.entityId);
+  if (extras.length) {
+    const wanted = [...new Set(extras.map((t) => t.entityId!))].filter(
+      (id) => !items.some((i) => i.entityId === id)
+    );
+    if (wanted.length) {
+      const found = await tx
+        .select({ id: entities.id })
+        .from(entities)
+        .innerJoin(inventoryItems, eq(inventoryItems.entityId, entities.id))
+        .where(and(eq(entities.organizationId, orgId), inArray(entities.id, wanted), isNull(entities.deletedAt)));
+      if (found.length !== wanted.length) {
+        throw new ServiceError("One of those items doesn't track stock, or no longer exists", 400);
+      }
+      await tx
+        .insert(biobankRequestItems)
+        .values(found.map((f) => ({ requestId: request.id, entityId: f.id })));
+      items = await loadItems();
+    }
+  }
+
+  // Everything keyed by request item from here on.
+  const asked = take
+    ? new Map(
+        take.map((t) => [
+          t.itemId ?? items.find((i) => i.entityId === t.entityId)?.id ?? "",
+          t.amount,
+        ])
+      )
+    : null;
   for (const itemId of asked?.keys() ?? []) {
-    if (!items.some((i) => i.id === itemId)) throw new ServiceError("That sample isn't part of this request", 400);
+    if (!items.some((i) => i.id === itemId)) throw new ServiceError("That item isn't part of this request", 400);
   }
 
   let who = "";

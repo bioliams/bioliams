@@ -7,6 +7,7 @@ import {
   createBiobankRequest,
   setBiobankStatus,
   type BiobankRequestInput,
+  type TakeEntry,
 } from "@/lib/services/biobank";
 import { BIOBANK_STATUSES, type BiobankStatus } from "@/lib/biobank-flow";
 import { type ActionResult, actionError } from "@/lib/action-result";
@@ -28,7 +29,7 @@ export async function setBiobankStatusAction(
   id: string,
   status: BiobankStatus,
   response?: string | null,
-  take?: { itemId: string; amount: string | null }[]
+  take?: TakeEntry[]
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   try {

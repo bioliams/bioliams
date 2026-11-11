@@ -1,14 +1,19 @@
 import { requireOrg } from "@/lib/tenant";
 import { can } from "@/lib/permissions";
 import { listBiobankRequests } from "@/lib/services/biobank";
+import { listInventory } from "@/lib/services/inventory";
 import { BiobankView } from "./biobank-view";
 
 export const metadata = { title: "Biobank requests · BioLIMS" };
 
 export default async function BiobankPage() {
   const ctx = await requireOrg();
-  const rows = await listBiobankRequests(ctx.orgId);
   const canManage = can(ctx.role, "biobank:manage");
+  const [rows, stock] = await Promise.all([
+    listBiobankRequests(ctx.orgId),
+    // Only the biobank takes from stock, so only it gets the stock list.
+    canManage ? listInventory(ctx.orgId) : Promise.resolve([]),
+  ]);
 
   return (
     <BiobankView
@@ -33,6 +38,14 @@ export default async function BiobankPage() {
       userId={ctx.userId}
       canRequest={can(ctx.role, "records:write")}
       canManage={canManage}
+      stockOptions={stock.map(({ entity, item, typeName }) => ({
+        entityId: entity.id,
+        displayId: entity.displayId,
+        name: entity.name,
+        typeName,
+        quantity: item.quantity,
+        unit: item.unit,
+      }))}
     />
   );
 }

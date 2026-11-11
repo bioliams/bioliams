@@ -30,6 +30,16 @@ import {
 import { cn } from "@/lib/utils";
 import { createBiobankRequestAction, setBiobankStatusAction } from "./actions";
 
+/** A stock-tracked record the biobank can take from (managers only). */
+export interface StockOption {
+  entityId: string;
+  displayId: string;
+  name: string;
+  typeName: string;
+  quantity: string;
+  unit: string;
+}
+
 export interface BiobankRow {
   id: string;
   title: string;
@@ -83,11 +93,13 @@ export function BiobankView({
   userId,
   canRequest,
   canManage,
+  stockOptions,
 }: {
   requests: BiobankRow[];
   userId: string;
   canRequest: boolean;
   canManage: boolean;
+  stockOptions: StockOption[];
 }) {
   // The biobank wants the whole queue; everyone else mostly wants their own.
   const [mineOnly, setMineOnly] = useState(!canManage);
@@ -107,8 +119,8 @@ export function BiobankView({
         title="Biobank requests"
         description={
           canManage
-            ? "Samples people have asked the biobank for. Move each one along so they know when to come and collect it."
-            : "Ask the biobank for samples, and see when they're ready to pick up."
+            ? "What people have asked the biobank for. Move each one along so they know when to come and collect it."
+            : "Ask the biobank for samples, reagents or anything else in the lab, and see when it's ready to pick up."
         }
         actions={canRequest && <Button onClick={() => setCreating(true)}>New request</Button>}
       />
@@ -174,6 +186,7 @@ export function BiobankView({
       <MoveDialog
         key={moving ? `${moving.row.id}:${moving.to}` : "none"}
         move={moving}
+        stockOptions={stockOptions}
         onClose={() => setMoving(null)}
       />
     </div>
@@ -293,6 +306,29 @@ function StockNote({ item, open }: { item: BiobankRow["items"][number]; open: bo
   );
 }
 
+function AmountInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Input
+      aria-label={`Amount of ${label} to take`}
+      type="number"
+      step="any"
+      min="0"
+      placeholder="amount"
+      className="h-8 w-24"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+
 /** "50.000" and "50" are the same amount; show the shorter one. */
 function tidy(n: string) {
   const x = Number(n);
@@ -305,9 +341,11 @@ function tidy(n: string) {
  */
 function MoveDialog({
   move,
+  stockOptions,
   onClose,
 }: {
   move: { row: BiobankRow; to: BiobankStatus } | null;
+  stockOptions: StockOption[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -315,13 +353,26 @@ function MoveDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const to = move?.to;
-  // Making it ready is when the samples leave the freezer, so that's when
-  // stock comes off. Only items that track stock and haven't been taken yet.
-  const takeable =
-    to === "ready" ? (move?.row.items ?? []).filter((i) => i.stock && !i.takenQuantity) : [];
+  // Making it ready is when things leave the shelf, so that's when stock
+  // comes off — like Use stock, but filed under this request.
+  const ready = to === "ready";
+  const attached = ready ? (move?.row.items ?? []) : [];
+  const takeable = attached.filter((i) => i.stock && !i.takenQuantity);
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
     Object.fromEntries(takeable.map((i) => [i.id, i.quantity ? tidy(i.quantity) : ""]))
   );
+  // Anything else from stock the biobank hands over — requests are often
+  // free text, so what comes off the shelf is decided here.
+  const [extra, setExtra] = useState<(StockOption & { amount: string })[]>([]);
+  const [search, setSearch] = useState("");
+  const listed = new Set([...attached.map((i) => i.displayId), ...extra.map((x) => x.displayId)]);
+  const q = search.trim().toLowerCase();
+  const matches = q
+    ? stockOptions
+        .filter((o) => !listed.has(o.displayId))
+        .filter((o) => `${o.displayId} ${o.name} ${o.typeName}`.toLowerCase().includes(q))
+        .slice(0, 8)
+    : [];
   // Requesters cancelling or confirming pickup don't leave a note — that field
   // is the biobank's voice.
   const askNote = to === "ready" || to === "declined" || to === "processing";
@@ -334,15 +385,22 @@ function MoveDialog({
         move.row.id,
         move.to,
         askNote ? note : null,
-        takeable.length ? takeable.map((i) => ({ itemId: i.id, amount: amounts[i.id] ?? "" })) : undefined
+        ready
+          ? [
+              ...takeable.map((i) => ({ itemId: i.id, amount: amounts[i.id] ?? "" })),
+              ...extra.map((x) => ({ entityId: x.entityId, amount: x.amount })),
+            ]
+          : undefined
       );
       if (result.error) {
         setError(result.fieldErrors?.response ?? result.fieldErrors?.take ?? result.error);
         return;
       }
-      const took = takeable.filter((i) => Number(amounts[i.id]) > 0).length;
+      const took =
+        takeable.filter((i) => Number(amounts[i.id]) > 0).length +
+        extra.filter((x) => Number(x.amount) > 0).length;
       toast.success(`${move.row.title} — ${STATUS_LABELS[move.to].toLowerCase()}`, {
-        description: took ? `Taken from stock for ${took} sample${took === 1 ? "" : "s"}` : undefined,
+        description: took ? `Taken from stock for ${took} item${took === 1 ? "" : "s"}` : undefined,
       });
       setNote("");
       setError(null);
@@ -362,18 +420,18 @@ function MoveDialog({
         }
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={cn("max-h-[85vh] overflow-y-auto", ready ? "sm:max-w-lg" : "sm:max-w-md")}>
         <DialogHeader>
           <DialogTitle>{to ? ACTION_LABEL[to] : ""}</DialogTitle>
           <DialogDescription>{move?.row.title}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          {takeable.length > 0 && (
+          {ready && (
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium">Take from stock</legend>
               <p className="text-xs text-muted-foreground">
-                Deducted when you save, as if used on the Use stock page. Leave blank to take
-                nothing.
+                Deducted when you save, exactly as on the Use stock page. Leave an amount blank
+                to take nothing.
               </p>
               {move?.row.details && (
                 <p className="rounded-md bg-muted/50 px-2 py-1.5 text-xs whitespace-pre-wrap">
@@ -381,26 +439,101 @@ function MoveDialog({
                   {move.row.details}
                 </p>
               )}
-              <ul className="space-y-1.5">
-                {takeable.map((item) => (
-                  <li key={item.id} className="flex items-center gap-2 text-sm">
-                    <span className="font-mono text-xs text-muted-foreground">{item.displayId}</span>
-                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                    <Input
-                      aria-label={`Amount of ${item.displayId} to take`}
-                      type="number"
-                      step="any"
-                      min="0"
-                      className="h-8 w-24"
-                      value={amounts[item.id] ?? ""}
-                      onChange={(e) => setAmounts((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                    />
-                    <span className="w-28 text-xs text-muted-foreground">
-                      {item.stock!.unit} of {tidy(item.stock!.quantity)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {(attached.length > 0 || extra.length > 0) && (
+                <ul className="space-y-1.5">
+                  {attached.map((item) => (
+                    <li key={item.id} className="flex items-center gap-2 text-sm">
+                      <span className="font-mono text-xs text-muted-foreground">{item.displayId}</span>
+                      <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                      {item.takenQuantity ? (
+                        <span className="text-xs text-muted-foreground">
+                          {tidy(item.takenQuantity)} {item.stock?.unit} already taken
+                        </span>
+                      ) : item.stock ? (
+                        <>
+                          <AmountInput
+                            label={item.displayId}
+                            value={amounts[item.id] ?? ""}
+                            onChange={(v) => setAmounts((prev) => ({ ...prev, [item.id]: v }))}
+                          />
+                          <span className="w-28 text-xs text-muted-foreground">
+                            {item.stock.unit} of {tidy(item.stock.quantity)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">stock not tracked</span>
+                      )}
+                    </li>
+                  ))}
+                  {extra.map((x) => (
+                    <li key={x.entityId} className="flex items-center gap-2 text-sm">
+                      <span className="font-mono text-xs text-muted-foreground">{x.displayId}</span>
+                      <span className="min-w-0 flex-1 truncate">{x.name}</span>
+                      <AmountInput
+                        label={x.displayId}
+                        value={x.amount}
+                        onChange={(v) =>
+                          setExtra((prev) => prev.map((p) => (p.entityId === x.entityId ? { ...p, amount: v } : p)))
+                        }
+                      />
+                      <span className="w-28 text-xs text-muted-foreground">
+                        {x.unit} of {tidy(x.quantity)}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${x.displayId}`}
+                        className="rounded-full p-1 hover:bg-muted"
+                        onClick={() => setExtra((prev) => prev.filter((p) => p.entityId !== x.entityId))}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Input
+                aria-label="Add an item from stock"
+                placeholder="Add an item from stock…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  if (matches[0]) {
+                    setExtra((prev) => [...prev, { ...matches[0], amount: "" }]);
+                    setSearch("");
+                  }
+                }}
+                autoComplete="off"
+              />
+              {matches.length > 0 && (
+                <ul className="max-h-40 overflow-y-auto rounded-md border text-sm">
+                  {matches.map((o) => (
+                    <li key={o.entityId}>
+                      <button
+                        type="button"
+                        className="flex w-full items-baseline gap-2 px-2 py-1.5 text-left hover:bg-muted"
+                        onClick={() => {
+                          setExtra((prev) => [...prev, { ...o, amount: "" }]);
+                          setSearch("");
+                        }}
+                      >
+                        <span className="font-mono text-xs text-muted-foreground">{o.displayId}</span>
+                        <span className="flex-1 truncate">{o.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {tidy(o.quantity)} {o.unit}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {q && matches.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No stock-tracked item matches. Only record types with stock tracking turned on
+                  can be taken from stock.
+                </p>
+              )}
             </fieldset>
           )}
           {askNote && (
@@ -532,8 +665,8 @@ function NewRequestDialog({
         <DialogHeader>
           <DialogTitle>Request from the biobank</DialogTitle>
           <DialogDescription>
-            Say what you need. If you know which samples, add them, and put amounts or
-            volumes in the details.
+            Say what you need — samples, reagents, anything in the lab. If you know which
+            items, add them, and put amounts in the details.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
@@ -552,7 +685,7 @@ function NewRequestDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="bb-records">Specific samples (optional)</Label>
+            <Label htmlFor="bb-records">Specific items (optional)</Label>
             {picked.length > 0 && (
               <ul className="divide-y rounded-md border text-sm">
                 {picked.map((p) => (

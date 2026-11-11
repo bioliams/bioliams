@@ -17,10 +17,14 @@ import { InviteForm } from "./invite-form";
 import { CopyLinkButton } from "./copy-link-button";
 import { PageHeader } from "@/components/page-header";
 import { RoleSelect } from "./role-select";
-import { can, ROLE_DESCRIPTIONS, ROLES } from "@/lib/permissions";
+import { can, ROLES, type Role } from "@/lib/permissions";
+import { getT } from "@/i18n/server";
 
 export default async function MembersPage() {
   const ctx = await requireOrg();
+  const t = await getT();
+  const roleName = (r: string) =>
+    (ROLES as readonly string[]).includes(r) ? t(`roles.${r as Role}`) : r;
 
   const [members, invites] = await Promise.all([
     db
@@ -35,13 +39,13 @@ export default async function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Members" description="Everyone with access to this lab." />
+      <PageHeader title={t("settings.members.title")} description={t("settings.members.description")} />
 
       <dl className="grid gap-1 rounded-md border bg-muted/30 p-3 text-xs sm:grid-cols-2">
         {ROLES.map((r) => (
           <div key={r} className="flex gap-2">
-            <dt className="w-20 shrink-0 font-medium">{r}</dt>
-            <dd className="text-muted-foreground">{ROLE_DESCRIPTIONS[r]}</dd>
+            <dt className="w-28 shrink-0 font-medium">{roleName(r)}</dt>
+            <dd className="text-muted-foreground">{t(`roles.desc.${r}`)}</dd>
           </div>
         ))}
       </dl>
@@ -52,9 +56,9 @@ export default async function MembersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
+              <TableHead>{t("common.name")}</TableHead>
+              <TableHead>{t("settings.members.email")}</TableHead>
+              <TableHead>{t("settings.members.role")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -76,7 +80,7 @@ export default async function MembersPage() {
                   {canManage ? (
                     <RoleSelect memberId={m.id} role={m.role} disabled={m.userId === ctx.userId} />
                   ) : (
-                    <Badge variant="secondary">{m.role}</Badge>
+                    <Badge variant="secondary">{roleName(m.role)}</Badge>
                   )}
                 </TableCell>
               </TableRow>
@@ -87,11 +91,10 @@ export default async function MembersPage() {
 
       {invites.filter((i) => i.status === "pending").length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-medium">Pending invitations</h2>
+          <h2 className="text-sm font-medium">{t("settings.members.pending")}</h2>
           {!process.env.RESEND_API_KEY && (
             <p className="text-xs text-muted-foreground">
-              No email service is connected, so nothing is sent automatically — copy the
-              link and share it with your colleague directly.
+              {t("settings.members.noEmail")}
             </p>
           )}
           <ul className="space-y-1 text-sm text-muted-foreground">

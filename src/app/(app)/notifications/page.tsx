@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { requireOrg } from "@/lib/tenant";
-import { listNotifications } from "@/lib/services/notifications";
-import { ALERT_LABELS, EXPIRY_WARNING_DAYS } from "@/lib/stock-alerts";
+import { describeNotification, listNotifications } from "@/lib/services/notifications";
+import { EXPIRY_WARNING_DAYS } from "@/lib/stock-alerts";
+import { getT } from "@/i18n/server";
+import { formatDateTime } from "@/i18n/format";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -17,6 +19,7 @@ export default async function NotificationsPage({
   const { view } = await searchParams;
   const resolved = view === "resolved";
   const ctx = await requireOrg();
+  const t = await getT();
   // The layout has already synced the alarms for this request.
   const rows = await listNotifications(ctx.orgId, ctx.userId, ctx.projectIds, {
     open: !resolved,
@@ -29,8 +32,8 @@ export default async function NotificationsPage({
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Notifications"
-        description={`Alarms for stock that has expired, expires within ${EXPIRY_WARNING_DAYS} days, has fallen to its low level, or reached its zero point. They clear themselves once the item is restocked, re-dated or discarded.`}
+        title={t("alerts.page.title")}
+        description={t("alerts.page.description", { days: EXPIRY_WARNING_DAYS })}
         actions={!resolved && unread > 0 ? <MarkAllReadButton /> : undefined}
       >
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -41,7 +44,7 @@ export default async function NotificationsPage({
               !resolved && "bg-muted font-medium"
             )}
           >
-            Active
+            {t("alerts.page.active")}
           </Link>
           <Link
             href="/notifications?view=resolved"
@@ -50,14 +53,14 @@ export default async function NotificationsPage({
               resolved && "bg-muted font-medium"
             )}
           >
-            Resolved
+            {t("alerts.page.resolved")}
           </Link>
           {!resolved &&
             (["out_of_stock", "expired", "low_stock", "expiring"] as const).map(
               (k) =>
                 counts.get(k) && (
                   <Badge key={k} variant={SEVERE.has(k) ? "destructive" : "outline"}>
-                    {counts.get(k)} {ALERT_LABELS[k].toLowerCase()}
+                    {t("alerts.page.count", { count: counts.get(k)!, kind: t(`alerts.kinds.${k}`) })}
                   </Badge>
                 )
             )}
@@ -82,7 +85,7 @@ export default async function NotificationsPage({
                   variant={!resolved && SEVERE.has(n.kind) ? "destructive" : "outline"}
                   className="shrink-0"
                 >
-                  {ALERT_LABELS[n.kind]}
+                  {t(`alerts.kinds.${n.kind}`)}
                 </Badge>
                 <OpenAlarmLink
                   id={n.id}
@@ -90,13 +93,15 @@ export default async function NotificationsPage({
                   href={`/t/${n.typeSlug}/${n.displayId}`}
                   className={cn("text-sm hover:underline", !n.read && !resolved && "font-medium")}
                 >
-                  {n.message}
+                  {describeNotification(n, t)}
                 </OpenAlarmLink>
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-mono">{n.displayId}</span> · raised{" "}
-                {n.createdAt.toLocaleString()}
-                {n.resolvedAt && <> · resolved {n.resolvedAt.toLocaleString()}</>}
+                <span className="font-mono">{n.displayId}</span> ·{" "}
+                {t("alerts.page.raised", { when: formatDateTime(n.createdAt, t.locale) })}
+                {n.resolvedAt && (
+                  <> · {t("alerts.page.resolvedAt", { when: formatDateTime(n.resolvedAt, t.locale) })}</>
+                )}
               </p>
             </div>
           </div>
@@ -104,8 +109,8 @@ export default async function NotificationsPage({
         {rows.length === 0 && (
           <p className="py-12 text-center text-sm text-muted-foreground">
             {resolved
-              ? "No resolved alarms yet."
-              : "All clear — nothing expired, expiring or out of stock."}
+              ? t("alerts.page.noneResolved")
+              : t("alerts.page.allClear")}
           </p>
         )}
       </div>

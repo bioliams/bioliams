@@ -143,6 +143,20 @@ body {
   font-size: 14px;
 }
 
+/* Persian: Vazirmatn first, with the system stack behind it for Latin text. */
+html[lang="fa"] body {
+  font-family: var(--font-vazirmatn), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+}
+
+/* Persian script must not be letter-spaced or force-uppercased: it joins letters. */
+html[lang="fa"] .tracking-wide,
+html[lang="fa"] .tracking-tight,
+html[lang="fa"] .uppercase {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 h1, h2, h3, h4 {
   letter-spacing: -0.008em;
   color: var(--foreground);

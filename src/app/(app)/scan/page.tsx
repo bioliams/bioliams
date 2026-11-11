@@ -1,14 +1,19 @@
 import { Scanner } from "./scanner";
 import { PageHeader } from "@/components/page-header";
+import { getT } from "@/i18n/server";
 
-export const metadata = { title: "Scan · BioLIMS" };
+export async function generateMetadata() {
+  const t = await getT();
+  return { title: `${t("nav.scan")} · BioLIMS` };
+}
 
-export default function ScanPage() {
+export default async function ScanPage() {
+  const t = await getT();
   return (
     <div className="mx-auto max-w-md space-y-4">
       <PageHeader
-        title="Scan a label"
-        description="Opens the record the label belongs to. Works with a phone camera, a USB scanner, or the ID typed by hand."
+        title={t("misc.scan.title")}
+        description={t("misc.scan.description")}
       />
       <Scanner />
     </div>

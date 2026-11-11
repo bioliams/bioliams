@@ -12,9 +12,11 @@ import {
   projectMembers,
   user,
 } from "@/db/schema";
-import { evaluateStock, ALERT_LABELS } from "@/lib/stock-alerts";
+import { evaluateStock } from "@/lib/stock-alerts";
+import { en } from "@/i18n/messages/en";
 import { escapeHtml, sendEmail } from "@/lib/email";
 import { baseUrl } from "@/lib/auth";
+import type { T } from "@/i18n/translate";
 import { projectScope } from "./projects";
 import { hasMovements } from "./inventory";
 
@@ -169,7 +171,7 @@ export async function emailAlarms(orgId: string, raised: Raised[]) {
       const lines = theirs
         .map((r) => {
           const rec = byId.get(r.entityId)!;
-          const label = ALERT_LABELS[r.kind as keyof typeof ALERT_LABELS];
+          const label = en.alerts.kinds[r.kind as keyof typeof en.alerts.kinds];
           return `<li><strong>${escapeHtml(label)}:</strong> <a href="${root}/t/${rec.typeSlug}/${rec.displayId}">${escapeHtml(r.message)}</a></li>`;
         })
         .join("");
@@ -204,10 +206,19 @@ export async function listNotifications(
       entityName: entities.name,
       typeSlug: entityTypes.slug,
       read: sql<boolean>`${notificationReads.userId} IS NOT NULL`,
+      // The item as it stands, so the alarm can be worded in the reader's language.
+      stock: {
+        quantity: inventoryItems.quantity,
+        unit: inventoryItems.unit,
+        minThreshold: inventoryItems.minThreshold,
+        zeroPoint: inventoryItems.zeroPoint,
+        expiresAt: inventoryItems.expiresAt,
+      },
     })
     .from(notifications)
     .innerJoin(entities, eq(notifications.entityId, entities.id))
     .innerJoin(entityTypes, eq(entities.entityTypeId, entityTypes.id))
+    .leftJoin(inventoryItems, eq(inventoryItems.entityId, notifications.entityId))
     .leftJoin(
       notificationReads,
       and(
@@ -277,4 +288,31 @@ export async function markRead(
     .insert(notificationReads)
     .values(visible.map((n) => ({ notificationId: n.id, userId })))
     .onConflictDoNothing();
+}
+
+type Listed = Awaited<ReturnType<typeof listNotifications>>[number];
+
+/**
+ * An alarm in the reader's language. Open alarms are re-worded from the item
+ * as it stands; resolved ones only name what and which, since the numbers
+ * they were raised with have moved on.
+ */
+export function describeNotification(n: Listed, t: T): string {
+  const kind = t(`alerts.kinds.${n.kind}`);
+  if (n.resolvedAt || !n.stock || n.stock.quantity === null || n.stock.unit === null) {
+    return t.locale === "en" ? n.message : t("alerts.resolvedLine", { kind, name: n.entityName });
+  }
+  const match = evaluateStock(
+    {
+      name: n.entityName,
+      quantity: n.stock.quantity,
+      unit: n.stock.unit,
+      minThreshold: n.stock.minThreshold,
+      zeroPoint: n.stock.zeroPoint ?? "0",
+      expiresAt: n.stock.expiresAt,
+    },
+    new Date(),
+    t
+  ).find((a) => a.kind === n.kind);
+  return match?.message ?? t("alerts.resolvedLine", { kind, name: n.entityName });
 }

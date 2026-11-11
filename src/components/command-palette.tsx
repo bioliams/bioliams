@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/client";
+import type { MessageKey } from "@/i18n/translate";
 
 interface RecordHit {
   displayId: string;
@@ -25,21 +27,21 @@ interface RecordHit {
 }
 
 interface PageItem {
-  label: string;
+  label: MessageKey;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   keywords: string;
 }
 
 const PAGES: PageItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard, keywords: "home overview" },
-  { label: "Scan a label", href: "/scan", icon: ScanLine, keywords: "barcode qr camera" },
-  { label: "Storage", href: "/locations", icon: Snowflake, keywords: "freezer box rack location" },
-  { label: "Inventory", href: "/inventory", icon: Boxes, keywords: "stock levels" },
-  { label: "Use stock", href: "/inventory/use", icon: FlaskConical, keywords: "consume record usage" },
-  { label: "Purchasing", href: "/purchasing", icon: ShoppingCart, keywords: "order buy request" },
-  { label: "Biobank requests", href: "/biobank", icon: HandHelping, keywords: "biobank sample request pickup collect" },
-  { label: "Audit log", href: "/settings/audit", icon: FileText, keywords: "history changes" },
+  { label: "nav.dashboard", href: "/", icon: LayoutDashboard, keywords: "home overview" },
+  { label: "nav.scan", href: "/scan", icon: ScanLine, keywords: "barcode qr camera" },
+  { label: "nav.storage", href: "/locations", icon: Snowflake, keywords: "freezer box rack location" },
+  { label: "nav.inventory", href: "/inventory", icon: Boxes, keywords: "stock levels" },
+  { label: "nav.useStock", href: "/inventory/use", icon: FlaskConical, keywords: "consume record usage" },
+  { label: "nav.purchasing", href: "/purchasing", icon: ShoppingCart, keywords: "order buy request" },
+  { label: "nav.biobank", href: "/biobank", icon: HandHelping, keywords: "biobank sample request pickup collect" },
+  { label: "nav.auditLog", href: "/settings/audit", icon: FileText, keywords: "history changes" },
 ];
 
 /**
@@ -50,6 +52,7 @@ const PAGES: PageItem[] = [
  */
 export function CommandPalette() {
   const router = useRouter();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [records, setRecords] = useState<RecordHit[]>([]);
@@ -95,21 +98,22 @@ export function CommandPalette() {
 
   const pages = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return PAGES;
-    return PAGES.filter(
+    const pages = PAGES.map((p) => ({ ...p, label: t(p.label) }));
+    if (!q) return pages;
+    return pages.filter(
       (p) => p.label.toLowerCase().includes(q) || p.keywords.includes(q)
     );
-  }, [query]);
+  }, [query, t]);
 
   const items = useMemo(
     () => [
       ...pages.map((p) => ({ kind: "page" as const, ...p })),
       ...records.map((r) => ({ kind: "record" as const, ...r })),
       ...(query.trim().length >= 2
-        ? [{ kind: "search" as const, label: `Search everywhere for “${query.trim()}”` }]
+        ? [{ kind: "search" as const, label: t("nav.palette.searchEverywhere", { query: query.trim() }) }]
         : []),
     ],
-    [pages, records, query]
+    [pages, records, query, t]
   );
 
   const go = useCallback(
@@ -132,7 +136,7 @@ export function CommandPalette() {
         className="top-24 max-w-lg translate-y-0 gap-0 p-0"
         showCloseButton={false}
       >
-        <DialogTitle className="sr-only">Search and jump anywhere</DialogTitle>
+        <DialogTitle className="sr-only">{t("nav.palette.title")}</DialogTitle>
         <div className="flex items-center gap-2 border-b px-4">
           <Search className="size-4 shrink-0 text-muted-foreground" />
           <input
@@ -155,9 +159,9 @@ export function CommandPalette() {
                 go(active);
               }
             }}
-            placeholder="Jump to a page or record…"
+            placeholder={t("nav.palette.placeholder")}
             className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            aria-label="Command palette"
+            aria-label={t("nav.palette.label")}
           />
           <kbd className="rounded border bg-muted px-1.5 text-[10px] text-muted-foreground">
             esc
@@ -167,7 +171,7 @@ export function CommandPalette() {
         <div className="max-h-80 overflow-y-auto p-2">
           {items.length === 0 && (
             <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-              Nothing matches.
+              {t("nav.palette.nothing")}
             </p>
           )}
           {items.map((item, i) => (
@@ -176,7 +180,7 @@ export function CommandPalette() {
               onClick={() => go(i)}
               onMouseEnter={() => setActive(i)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm",
+                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-start text-sm",
                 i === active ? "bg-accent text-accent-foreground" : "text-foreground"
               )}
             >
@@ -184,7 +188,7 @@ export function CommandPalette() {
                 <>
                   <item.icon className="size-4 shrink-0 text-muted-foreground" />
                   <span>{item.label}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Page</span>
+                  <span className="ms-auto text-xs text-muted-foreground">{t("nav.palette.page")}</span>
                 </>
               ) : item.kind === "record" ? (
                 <>
@@ -192,7 +196,7 @@ export function CommandPalette() {
                     {item.displayId}
                   </span>
                   <span className="min-w-0 truncate">{item.name}</span>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                  <span className="ms-auto shrink-0 text-xs text-muted-foreground">
                     {item.location ?? item.typeName}
                   </span>
                 </>

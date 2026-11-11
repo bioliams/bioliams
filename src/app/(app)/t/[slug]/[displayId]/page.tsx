@@ -22,7 +22,10 @@ import { EntityDetailActions } from "./detail-actions";
 import { AttachmentsPanel } from "./attachments-panel";
 import { StockPanel } from "./stock-panel";
 import { StockStatus } from "@/components/stock-status";
-import { formatExpiryDate } from "@/lib/stock-alerts";
+import { formatExpiryDate, expiryLabel } from "@/lib/stock-alerts";
+import { getT } from "@/i18n/server";
+import { formatDateTime } from "@/i18n/format";
+import { statusLabel } from "@/i18n/labels";
 
 export default async function EntityDetailPage({
   params,
@@ -31,6 +34,7 @@ export default async function EntityDetailPage({
 }) {
   const { slug, displayId } = await params;
   const ctx = await requireOrg();
+  const t = await getT();
 
   const [type, entity] = await Promise.all([
     getEntityTypeBySlug(ctx.orgId, slug).catch(notFoundOn404),
@@ -83,7 +87,7 @@ export default async function EntityDetailPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href={`/t/${slug}`} className="text-sm text-muted-foreground hover:underline">
-            ← {type.name}
+            {t("record.backTo", { name: type.name })}
           </Link>
           <h1 className="mt-1 text-xl font-semibold">{entity.name}</h1>
           <p className="font-mono text-sm text-muted-foreground">{entity.displayId}</p>
@@ -118,20 +122,20 @@ export default async function EntityDetailPage({
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Details</CardTitle>
+            <CardTitle className="text-base">{t("record.details")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              <Field label="Status">
+              <Field label={t("common.status")}>
                 <Badge variant={entity.status === "active" ? "secondary" : "outline"}>
-                  {entity.status}
+                  {statusLabel(t, entity.status)}
                 </Badge>
               </Field>
-              <Field label="Location">
+              <Field label={t("common.location")}>
                 {locationPath.length > 0 ? (
                   <span>
                     {locationPath.map((l) => l.name).join(" › ")}
-                    {well && <span className="ml-1 font-mono text-xs">[{well}]</span>}
+                    {well && <span className="ms-1 font-mono text-xs">[{well}]</span>}
                   </span>
                 ) : (
                   "—"
@@ -139,31 +143,34 @@ export default async function EntityDetailPage({
               </Field>
               {inventory && (
                 <>
-                  <Field label="Quantity">
+                  <Field label={t("common.quantity")}>
                     {inventory.quantity} {inventory.unit}
                     {inventory.lot && (
-                      <span className="ml-2 text-muted-foreground">lot {inventory.lot}</span>
+                      <span className="ms-2 text-muted-foreground">
+                        {t("record.lotInline", { lot: inventory.lot })}
+                      </span>
                     )}
                   </Field>
-                  <Field label="Stock status">
-                    <StockStatus item={{ ...inventory, name: entity.name, hasMovements: stocked }} />
+                  <Field label={t("record.stockStatus")}>
+                    <StockStatus item={{ ...inventory, name: entity.name, hasMovements: stocked }} t={t} />
                   </Field>
-                  <Field label="Expires">
+                  <Field label={t("record.expires")}>
                     {inventory.expiresAt ? (
-                      formatExpiryDate(inventory.expiresAt)
+                      expiryLabel(inventory.expiresAt, t.locale)
                     ) : (
-                      <span className="text-muted-foreground">Not set — add it in Stock settings</span>
+                      <span className="text-muted-foreground">{t("record.expiresNotSet")}</span>
                     )}
                   </Field>
-                  <Field label="Low at / zero point">
+                  <Field label={t("record.lowZero")}>
                     {inventory.minThreshold ?? "—"} / {inventory.zeroPoint} {inventory.unit}
                   </Field>
                 </>
               )}
-              <Field label="Created">{entity.createdAt.toLocaleString()}</Field>
+              <Field label={t("common.created")}>{formatDateTime(entity.createdAt, t.locale)}</Field>
               {type.fields.map((f) => (
                 <Field key={f.key} label={f.label}>
-                  {formatFieldValue(f, entity.data[f.key])}
+                  {/* Values keep their own direction: "-20C" must not become "20C-". */}
+                  <bdi>{formatFieldValue(f, entity.data[f.key], t)}</bdi>
                 </Field>
               ))}
             </dl>
@@ -172,25 +179,25 @@ export default async function EntityDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Lineage</CardTitle>
+            <CardTitle className="text-base">{t("record.lineage")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div>
-              <p className="text-xs font-medium uppercase text-muted-foreground">Parent</p>
+              <p className="text-xs font-medium uppercase text-muted-foreground">{t("record.parent")}</p>
               {parent ? (
                 <Link href={`/t/${slug}/${parent.displayId}`} className="hover:underline">
                   {parent.displayId} · {parent.name}
                 </Link>
               ) : (
-                <p className="text-muted-foreground">None</p>
+                <p className="text-muted-foreground">{t("common.none")}</p>
               )}
             </div>
             <div>
               <p className="text-xs font-medium uppercase text-muted-foreground">
-                Derived records ({children.length})
+                {t("record.derived", { count: children.length })}
               </p>
               {children.length === 0 ? (
-                <p className="text-muted-foreground">None</p>
+                <p className="text-muted-foreground">{t("common.none")}</p>
               ) : (
                 <>
                   <ul className="space-y-1">
@@ -206,7 +213,7 @@ export default async function EntityDetailPage({
                     href={`/labels?ids=${children.map((c) => c.displayId).join(",")}`}
                     className="mt-2 inline-block text-xs text-muted-foreground hover:underline"
                   >
-                    Print labels for all {children.length} →
+                    {t("record.printAll", { count: children.length })}
                   </Link>
                 </>
               )}
@@ -243,7 +250,7 @@ export default async function EntityDetailPage({
           custody={{
             holderName,
             isMine: entity.checkedOutBy === ctx.userId,
-            since: entity.checkedOutAt ? entity.checkedOutAt.toLocaleString() : null,
+            since: entity.checkedOutAt ? formatDateTime(entity.checkedOutAt, t.locale) : null,
           }}
           canWrite={can(ctx.role, "records:write")}
           projects={projects.map((p) => ({ id: p.project.id, name: p.project.name }))}
@@ -252,7 +259,7 @@ export default async function EntityDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Label</CardTitle>
+            <CardTitle className="text-base">{t("record.label")}</CardTitle>
           </CardHeader>
           <CardContent className="flex items-center gap-4">
             <div
@@ -262,10 +269,10 @@ export default async function EntityDetailPage({
             <div className="space-y-2 text-sm">
               <p className="font-mono font-semibold">{entity.displayId}</p>
               <p className="text-muted-foreground">
-                Scan with any phone camera to open this record — no app needed.
+                {t("record.labelHelp")}
               </p>
               <Button variant="outline" size="sm" asChild>
-                <Link href={`/labels?ids=${entity.displayId}`}>Print label</Link>
+                <Link href={`/labels?ids=${entity.displayId}`}>{t("record.printLabel")}</Link>
               </Button>
             </div>
           </CardContent>
@@ -284,22 +291,22 @@ export default async function EntityDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">History</CardTitle>
+            <CardTitle className="text-base">{t("record.history")}</CardTitle>
           </CardHeader>
           <CardContent>
             {history.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No recorded changes.</p>
+              <p className="text-sm text-muted-foreground">{t("record.noHistory")}</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {history.map(({ entry, actorName, actorImage }) => {
-                  const details = summariseAudit(entry.action, entry.diff);
+                  const details = summariseAudit(entry.action, entry.diff, t);
                   return (
                     <li key={entry.id} className="space-y-0.5">
                       <div className="flex justify-between gap-3">
-                        <span className="font-medium" title={entry.action}>{actionLabel(entry.action)}</span>
+                        <span className="font-medium" title={entry.action}>{actionLabel(entry.action, t)}</span>
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <ActorChip name={actorName} image={actorImage} /> ·{" "}
-                          {entry.createdAt.toLocaleString()}
+                          {formatDateTime(entry.createdAt, t.locale)}
                         </span>
                       </div>
                       {details && <p className="text-xs text-muted-foreground">{details}</p>}

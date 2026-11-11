@@ -5,15 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { updateInventoryAction } from "./actions";
+import { useT } from "@/i18n/client";
 
 type Field = "quantity" | "minThreshold" | "zeroPoint" | "expiresAt";
-
-const SAVED: Record<Field, string> = {
-  quantity: "Quantity updated",
-  minThreshold: "Minimum updated",
-  zeroPoint: "Zero point updated",
-  expiresAt: "Expiry date updated",
-};
 
 /**
  * One inline-editable stock setting; commits on blur or Enter. Blank clears
@@ -35,6 +29,7 @@ export function StockCell({
   disabled?: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
   const [value, setValue] = useState(initial);
   const [saving, setSaving] = useState(false);
 
@@ -52,7 +47,7 @@ export function StockCell({
       setValue(initial);
       return;
     }
-    toast.success(SAVED[field]);
+    toast.success(t(`inventory.saved.${field}`));
     router.refresh();
   }
 
@@ -67,7 +62,7 @@ export function StockCell({
         value={value}
         placeholder={placeholder}
         disabled={saving || disabled}
-        aria-label={SAVED[field].replace(" updated", "")}
+        aria-label={t(`inventory.fieldLabel.${field}`)}
         onChange={(e) => setValue(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}

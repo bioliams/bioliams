@@ -16,14 +16,19 @@ import { actionLabel } from "@/lib/audit-summary";
 import { PageHeader } from "@/components/page-header";
 import { ActorChip } from "@/components/actor-chip";
 import { BarChart, DualBarChart, HBarList } from "@/components/charts";
+import { getT } from "@/i18n/server";
+import { formatDate } from "@/i18n/format";
+import { intlTag, type Locale } from "@/i18n/config";
 
-function weekLabel(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function weekLabel(iso: string, locale: Locale) {
+  return new Intl.DateTimeFormat(intlTag(locale), { month: "short", day: "numeric" }).format(
+    new Date(iso)
+  );
 }
 
 export default async function DashboardPage() {
   const ctx = await requireOrg();
+  const t = await getT();
 
   const [counts, lowStock, recent] = await Promise.all([
     getTypeCounts(ctx.orgId),
@@ -40,15 +45,15 @@ export default async function DashboardPage() {
   ]);
 
   const stats = [
-    { label: "Records", value: totals.records, href: "/search" },
-    { label: "Low stock", value: totals.lowStock, href: "/inventory" },
-    { label: "Open orders", value: totals.openOrders, href: "/purchasing" },
-    { label: "Checked out", value: totals.checkedOut, href: null },
+    { label: t("dashboard.stats.records"), value: totals.records, href: "/search" },
+    { label: t("dashboard.stats.lowStock"), value: totals.lowStock, href: "/inventory" },
+    { label: t("dashboard.stats.openOrders"), value: totals.openOrders, href: "/purchasing" },
+    { label: t("dashboard.stats.checkedOut"), value: totals.checkedOut, href: null },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="What needs attention, and what just happened." />
+      <PageHeader title={t("dashboard.title")} description={t("dashboard.description")} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {counts.map((c) => (
@@ -72,7 +77,7 @@ export default async function DashboardPage() {
         {counts.length === 0 && (
           <Card className="sm:col-span-2 lg:col-span-4">
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              No record types yet. Create one in Settings → Record types.
+              {t("dashboard.noTypes")}
             </CardContent>
           </Card>
         )}
@@ -81,11 +86,11 @@ export default async function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Low stock</CardTitle>
+            <CardTitle className="text-base">{t("dashboard.lowStock")}</CardTitle>
           </CardHeader>
           <CardContent>
             {lowStock.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Everything is above threshold.</p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.allAbove")}</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {lowStock.map(({ item, entity, typeSlug }) => (
@@ -95,13 +100,13 @@ export default async function DashboardPage() {
                     </Link>
                     <span className="flex shrink-0 items-center gap-2">
                       <Badge variant="destructive">
-                        {item.quantity} {item.unit} left
+                        {t("dashboard.left", { quantity: item.quantity, unit: item.unit })}
                       </Badge>
                       <Link
                         href="/purchasing"
                         className="text-xs text-primary hover:underline"
                       >
-                        Request more
+                        {t("dashboard.requestMore")}
                       </Link>
                     </span>
                   </li>
@@ -113,17 +118,17 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Recent activity</CardTitle>
+            <CardTitle className="text-base">{t("dashboard.recent")}</CardTitle>
           </CardHeader>
           <CardContent>
             {recent.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nothing has happened yet.</p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.nothingYet")}</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {recent.map(({ entry, actorName, actorImage }) => (
                   <li key={entry.id} className="flex justify-between gap-3">
                     <span className="min-w-0 truncate">
-                      <span className="font-medium">{actionLabel(entry.action)}</span>
+                      <span className="font-medium">{actionLabel(entry.action, t)}</span>
                       {" — "}
                       <span className="text-muted-foreground">
                         {entry.targetLabel ?? entry.targetId}
@@ -131,7 +136,7 @@ export default async function DashboardPage() {
                     </span>
                     <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                       <ActorChip name={actorName} image={actorImage} /> ·{" "}
-                      {entry.createdAt.toLocaleDateString()}
+                      {formatDate(entry.createdAt, t.locale)}
                     </span>
                   </li>
                 ))}
@@ -142,8 +147,8 @@ export default async function DashboardPage() {
       </div>
        <div className="space-y-4">
       <PageHeader
-        title="Analytics"
-        description="What the lab registers, uses and orders — the last twelve weeks."
+        title={t("dashboard.analytics")}
+        description={t("dashboard.analyticsDesc")}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -176,59 +181,66 @@ export default async function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Records registered per week</CardTitle>
+            <CardTitle className="text-base">{t("dashboard.registered")}</CardTitle>
           </CardHeader>
           <CardContent>
             <BarChart
-              data={regs.map((r) => ({ label: weekLabel(r.week), value: r.count }))}
+              data={regs.map((r) => ({ label: weekLabel(r.week, t.locale), value: r.count }))}
+              emptyText={t("dashboard.noData")}
             />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Stock used vs. received per week</CardTitle>
+            <CardTitle className="text-base">{t("dashboard.flow")}</CardTitle>
           </CardHeader>
           <CardContent>
             <DualBarChart
-              data={flow.map((f) => ({ label: weekLabel(f.week), a: f.consumed, b: f.received }))}
-              seriesLabels={["Used", "Received"]}
+              data={flow.map((f) => ({
+                label: weekLabel(f.week, t.locale),
+                a: f.consumed,
+                b: f.received,
+              }))}
+              seriesLabels={[t("dashboard.used"), t("dashboard.received")]}
+              emptyText={t("dashboard.noData")}
             />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Most-used items</CardTitle>
+            <CardTitle className="text-base">{t("dashboard.mostUsed")}</CardTitle>
           </CardHeader>
           <CardContent>
             <HBarList
-              data={topItems.map((t) => ({
-                label: t.name,
-                value: t.uses,
-                hint: `${t.total} ${t.unit}`,
+              data={topItems.map((item) => ({
+                label: item.name,
+                value: item.uses,
+                hint: `${item.total} ${item.unit}`,
               }))}
-              formatValue={(v) => `${v} use${v === 1 ? "" : "s"}`}
+              formatValue={(v) => t("dashboard.uses", { count: v })}
+              emptyText={t("dashboard.noData")}
             />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Stock activity by member</CardTitle>
+            <CardTitle className="text-base">{t("dashboard.byMember")}</CardTitle>
           </CardHeader>
           <CardContent>
             <HBarList
               data={byMember.map((m) => ({ label: m.name, value: m.events }))}
-              formatValue={(v) => `${v} event${v === 1 ? "" : "s"}`}
+              formatValue={(v) => t("dashboard.events", { count: v })}
+              emptyText={t("dashboard.noData")}
             />
           </CardContent>
         </Card>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Numbers come from the same events the audit log records — nothing is sampled or
-        estimated. Export any registry to Excel for deeper analysis.
+        {t("dashboard.footnote")}
       </p>
     </div>
     </div>

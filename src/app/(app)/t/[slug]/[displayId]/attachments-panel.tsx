@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { uploadAttachmentAction, deleteAttachmentAction } from "./attachment-actions";
+import { useT } from "@/i18n/client";
 
 export function AttachmentsPanel({
   entityId,
@@ -19,6 +20,7 @@ export function AttachmentsPanel({
   files: { id: string; fileName: string; sizeBytes: number }[];
 }) {
   const router = useRouter();
+  const t = useT();
   const [pending, setPending] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -32,7 +34,7 @@ export function AttachmentsPanel({
       toast.error(result.error);
       return;
     }
-    toast.success(`Uploaded ${file.name}`);
+    toast.success(t("record.attachments.uploaded", { name: file.name }));
     router.refresh();
   }
 
@@ -42,14 +44,14 @@ export function AttachmentsPanel({
       toast.error(result.error);
       return;
     }
-    toast.success(`Removed ${name}`);
+    toast.success(t("record.attachments.removed", { name }));
     router.refresh();
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Attachments</CardTitle>
+        <CardTitle className="text-base">{t("record.attachments.title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <input
@@ -69,11 +71,11 @@ export function AttachmentsPanel({
           disabled={pending}
           onClick={() => fileInput.current?.click()}
         >
-          {pending ? "Uploading…" : "Attach a file"}
+          {pending ? t("record.attachments.uploading") : t("record.attachments.attach")}
         </Button>
         {files.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nothing attached yet — CoAs, gel images, datasheets.
+            {t("record.attachments.empty")}
           </p>
         ) : (
           <ul className="space-y-1 text-sm">
@@ -89,14 +91,14 @@ export function AttachmentsPanel({
                 </a>
                 <span className="flex shrink-0 items-center gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {(f.sizeBytes / 1024).toFixed(0)} KB
+                    {t("record.attachments.kb", { size: Math.round(f.sizeBytes / 1024) })}
                   </span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(f.id, f.fileName)}
                   >
-                    Remove
+                    {t("common.remove")}
                   </Button>
                 </span>
               </li>

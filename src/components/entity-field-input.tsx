@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useT } from "@/i18n/client";
 
 interface Props {
   field: FieldDef;
@@ -21,12 +22,13 @@ interface Props {
 
 /** Renders the right control for a user-defined field type. */
 export function EntityFieldInput({ field, value, error, onChange }: Props) {
+  const t = useT();
   const id = `field-${field.key}`;
   const label = (
     <Label htmlFor={id}>
       {field.label}
-      {field.required && <span className="ml-0.5 text-red-600">*</span>}
-      {field.unit && <span className="ml-1 text-xs text-muted-foreground">({field.unit})</span>}
+      {field.required && <span className="ms-0.5 text-red-600">*</span>}
+      {field.unit && <span className="ms-1 text-xs text-muted-foreground">({field.unit})</span>}
     </Label>
   );
 
@@ -47,7 +49,7 @@ export function EntityFieldInput({ field, value, error, onChange }: Props) {
       control = (
         <Select value={(value as string) ?? ""} onValueChange={onChange}>
           <SelectTrigger id={id} className="w-full">
-            <SelectValue placeholder="Select…" />
+            <SelectValue placeholder={t("record.dialog.selectPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
             {(field.options ?? []).map((opt) => (

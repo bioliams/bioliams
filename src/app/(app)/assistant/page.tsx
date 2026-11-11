@@ -5,22 +5,27 @@ import { can } from "@/lib/permissions";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { AssistantChat } from "./assistant-chat";
+import { getT } from "@/i18n/server";
 
-export const metadata = { title: "Assistant · BioLIMS" };
+export async function generateMetadata() {
+  const t = await getT();
+  return { title: `${t("nav.assistant")} · BioLIMS` };
+}
 
 export default async function AssistantPage() {
   const ctx = await requireOrg();
+  const t = await getT();
   const config = await getAiConfig(ctx.orgId);
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <PageHeader
-        title="Lab assistant"
-        description="Ask about samples, stock and activity in plain language. It reads the same records you can — nothing more."
+        title={t("assistant.title")}
+        description={t("assistant.description")}
         actions={
           can(ctx.role, "keys:manage") && (
             <Button variant="outline" asChild>
-              <Link href="/settings/ai">AI settings</Link>
+              <Link href="/settings/ai">{t("assistant.settings")}</Link>
             </Button>
           )
         }

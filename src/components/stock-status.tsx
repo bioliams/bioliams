@@ -1,17 +1,18 @@
 import { Badge } from "@/components/ui/badge";
-import { ALERT_LABELS, daysUntil, evaluateStock, type StockState } from "@/lib/stock-alerts";
+import { daysUntil, evaluateStock, type StockState } from "@/lib/stock-alerts";
+import type { T } from "@/i18n/translate";
 
 /** The alarms an item would raise right now, as badges; "OK" when none. */
-export function StockStatus({ item }: { item: StockState }) {
-  const alerts = evaluateStock(item);
+export function StockStatus({ item, t }: { item: StockState; t: T }) {
+  const alerts = evaluateStock(item, new Date(), t);
   if (alerts.length === 0) {
     const uncounted = item.hasMovements === false && Number(item.quantity) <= 0;
     return uncounted ? (
-      <Badge variant="outline" className="text-muted-foreground" title="No stock has been recorded for this item">
-        Not stocked
+      <Badge variant="outline" className="text-muted-foreground" title={t("alerts.notStockedTitle")}>
+        {t("alerts.notStocked")}
       </Badge>
     ) : (
-      <Badge variant="secondary">OK</Badge>
+      <Badge variant="secondary">{t("alerts.ok")}</Badge>
     );
   }
   return (
@@ -21,18 +22,17 @@ export function StockStatus({ item }: { item: StockState }) {
           a.kind === "expiring" && item.expiresAt
             ? (() => {
                 const d = daysUntil(item.expiresAt);
-                return d === 0 ? "Expires today" : `Expires in ${d}d`;
+                return d === 0
+                  ? t("alerts.badgeExpiresToday")
+                  : t("alerts.badgeExpiresIn", { count: d });
               })()
-            : ALERT_LABELS[a.kind];
+            : t(`alerts.kinds.${a.kind}`);
+        const soft = a.kind === "low_stock" || a.kind === "expiring";
         return (
           <Badge
             key={a.kind}
-            variant={a.kind === "low_stock" || a.kind === "expiring" ? "outline" : "destructive"}
-            className={
-              a.kind === "low_stock" || a.kind === "expiring"
-                ? "border-amber-500/60 text-amber-700 dark:text-amber-400"
-                : undefined
-            }
+            variant={soft ? "outline" : "destructive"}
+            className={soft ? "border-amber-500/60 text-amber-700 dark:text-amber-400" : undefined}
             title={a.message}
           >
             {label}

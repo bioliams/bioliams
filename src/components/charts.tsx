@@ -10,19 +10,23 @@ export function BarChart({
   data,
   height = 140,
   formatValue = (v) => String(v),
+  emptyText = "No data yet.",
 }: {
   data: { label: string; value: number }[];
   height?: number;
   formatValue?: (v: number) => string;
+  emptyText?: string;
 }) {
   if (data.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">No data yet.</p>;
+    return <p className="py-8 text-center text-sm text-muted-foreground">{emptyText}</p>;
   }
   const max = Math.max(...data.map((d) => d.value), 1);
   const barWidth = 100 / data.length;
 
+  // Time runs left to right even on a right-to-left page, so the axis labels
+  // stay under the bars they name.
   return (
-    <div>
+    <div dir="ltr">
       <svg
         viewBox={`0 0 100 ${height}`}
         preserveAspectRatio="none"
@@ -58,19 +62,21 @@ export function DualBarChart({
   data,
   height = 140,
   seriesLabels,
+  emptyText = "No data yet.",
 }: {
   data: { label: string; a: number; b: number }[];
   height?: number;
   seriesLabels: [string, string];
+  emptyText?: string;
 }) {
   if (data.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">No data yet.</p>;
+    return <p className="py-8 text-center text-sm text-muted-foreground">{emptyText}</p>;
   }
   const max = Math.max(...data.flatMap((d) => [d.a, d.b]), 1);
   const group = 100 / data.length;
 
   return (
-    <div>
+    <div dir="ltr">
       <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" className="h-36 w-full" role="img">
         {data.map((d, i) => {
           const ha = Math.max((d.a / max) * (height - 24), d.a > 0 ? 3 : 0);
@@ -116,12 +122,14 @@ export function DualBarChart({
 export function HBarList({
   data,
   formatValue = (v) => String(v),
+  emptyText = "No data yet.",
 }: {
   data: { label: string; value: number; hint?: string }[];
   formatValue?: (v: number) => string;
+  emptyText?: string;
 }) {
   if (data.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">No data yet.</p>;
+    return <p className="py-8 text-center text-sm text-muted-foreground">{emptyText}</p>;
   }
   const max = Math.max(...data.map((d) => d.value), 1);
   return (

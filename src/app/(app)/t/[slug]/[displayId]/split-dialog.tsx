@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { splitEntityAction } from "./split-actions";
+import { useT } from "@/i18n/client";
+import { kindLabel } from "@/i18n/labels";
 
 const NO_LOCATION = "__none__";
 
@@ -57,6 +59,7 @@ export function SplitDialog({
   locations: { id: string; name: string; kind: string }[];
 }) {
   const router = useRouter();
+  const t = useT();
   const [destinations, setDestinations] = useState<Destination[]>([
     { count: "1", amountEach: "1", locationId: NO_LOCATION },
   ]);
@@ -88,9 +91,9 @@ export function SplitDialog({
       }
       const left =
         result.value?.remaining !== null && result.value
-          ? `${result.value.remaining} ${result.value.unit} left of the parent`
+          ? t("record.split.leftOfParent", { quantity: result.value.remaining ?? "", unit: result.value.unit })
           : undefined;
-      toast.success(`Created ${result.value?.created ?? 0} aliquots`, { description: left });
+      toast.success(t("record.split.created", { count: result.value?.created ?? 0 }), { description: left });
       onOpenChange(false);
       setDestinations([{ count: "1", amountEach: "1", locationId: NO_LOCATION }]);
       router.refresh();
@@ -101,16 +104,15 @@ export function SplitDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Split into aliquots</DialogTitle>
+          <DialogTitle>{t("record.split.title")}</DialogTitle>
           <DialogDescription>
-            Each aliquot becomes its own record, linked back to {entityName}, so it can be
-            stored, scanned and used up separately.
+            {t("record.split.description", { name: entityName })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>How much goes where</Label>
+            <Label>{t("record.split.howMuch")}</Label>
             {destinations.map((dest, i) => (
               <div key={i} className="flex items-center gap-2">
                 <Input
@@ -120,7 +122,7 @@ export function SplitDialog({
                   value={dest.count}
                   onChange={(e) => update(i, { count: e.target.value })}
                   className="w-16"
-                  aria-label="Number of aliquots"
+                  aria-label={t("record.split.count")}
                 />
                 <span className="text-sm text-muted-foreground">×</span>
                 <Input
@@ -130,9 +132,11 @@ export function SplitDialog({
                   value={dest.amountEach}
                   onChange={(e) => update(i, { amountEach: e.target.value })}
                   className="w-20"
-                  aria-label="Amount in each aliquot"
+                  aria-label={t("record.split.each")}
                 />
-                <span className="text-sm text-muted-foreground">{unit ?? "units"} →</span>
+                <span className="text-sm text-muted-foreground">
+                  {unit ?? t("record.split.units")} {t("audit.arrow")}
+                </span>
                 <Select
                   value={dest.locationId}
                   onValueChange={(value) => update(i, { locationId: value })}
@@ -141,10 +145,10 @@ export function SplitDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_LOCATION}>No location yet</SelectItem>
+                    <SelectItem value={NO_LOCATION}>{t("record.split.noLocationYet")}</SelectItem>
                     {locations.map((l) => (
                       <SelectItem key={l.id} value={l.id}>
-                        {l.name} ({l.kind})
+                        {l.name} ({kindLabel(t, l.kind)})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -155,7 +159,7 @@ export function SplitDialog({
                     size="sm"
                     onClick={() => setDestinations((prev) => prev.filter((_, j) => j !== i))}
                   >
-                    Remove
+                    {t("common.remove")}
                   </Button>
                 )}
               </div>
@@ -170,24 +174,28 @@ export function SplitDialog({
                 ])
               }
             >
-              Another freezer
+              {t("record.split.anotherFreezer")}
             </Button>
           </div>
 
           <p className={overdrawn ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
-            {totalVials} aliquot{totalVials === 1 ? "" : "s"} using {totalAmount}{" "}
-            {unit ?? "units"}
-            {available !== null && ` of the ${available} ${unit ?? "units"} available`}
-            {overdrawn && " — that's more than there is"}
+            {t("record.split.summary", {
+              count: totalVials,
+              total: String(totalAmount),
+              unit: unit ?? t("record.split.units"),
+            })}
+            {available !== null &&
+              t("record.split.ofAvailable", { available, unit: unit ?? t("record.split.units") })}
+            {overdrawn && t("record.split.tooMuch")}
           </p>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button onClick={submit} disabled={pending || totalVials === 0 || overdrawn}>
-            {pending ? "Splitting…" : `Create ${totalVials} aliquot${totalVials === 1 ? "" : "s"}`}
+            {pending ? t("record.split.splitting") : t("record.split.create", { count: totalVials })}
           </Button>
         </DialogFooter>
       </DialogContent>

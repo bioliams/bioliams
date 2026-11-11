@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { markReadAction } from "@/app/(app)/notifications/actions";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/client";
 
 export interface BellItem {
   id: string;
@@ -34,6 +35,7 @@ const DOT: Record<BellItem["kind"], string> = {
 /** Header bell: unread alarm count, the latest open alarms, and a way through to all of them. */
 export function NotificationBell({ unread, items }: { unread: number; items: BellItem[] }) {
   const router = useRouter();
+  const t = useT();
   const [pending, startTransition] = useTransition();
 
   function open(item: BellItem) {
@@ -50,19 +52,19 @@ export function NotificationBell({ unread, items }: { unread: number; items: Bel
           variant="ghost"
           size="icon"
           className="relative"
-          aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+          aria-label={unread > 0 ? t("alerts.bell.labelUnread", { count: unread }) : t("alerts.bell.label")}
         >
           <Bell className="size-5" />
           {unread > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
-              {unread > 99 ? "99+" : unread}
+            <span className="absolute end-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
+              {unread > 99 ? "99+" : new Intl.NumberFormat(t.locale === "fa" ? "fa-IR" : "en").format(unread)}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
         <div className="flex items-center justify-between">
-          <DropdownMenuLabel>Stock alarms</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("alerts.bell.title")}</DropdownMenuLabel>
           {unread > 0 && (
             <button
               type="button"
@@ -75,14 +77,14 @@ export function NotificationBell({ unread, items }: { unread: number; items: Bel
                 })
               }
             >
-              Mark all read
+              {t("alerts.bell.markAllRead")}
             </button>
           )}
         </div>
         <DropdownMenuSeparator />
         {items.length === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-            Nothing expired, expiring or out of stock.
+            {t("alerts.bell.empty")}
           </p>
         ) : (
           items.map((item) => (
@@ -104,7 +106,7 @@ export function NotificationBell({ unread, items }: { unread: number; items: Bel
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/notifications" className="justify-center text-sm">
-            Open notification center
+            {t("alerts.bell.openCenter")}
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

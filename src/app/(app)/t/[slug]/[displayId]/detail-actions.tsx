@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EntityDialog } from "@/components/entity-dialog";
 import { SplitDialog } from "./split-dialog";
 import { deleteEntityAction } from "@/app/(app)/t/[slug]/actions";
+import { useT } from "@/i18n/client";
 
 export function EntityDetailActions({
   type,
@@ -35,6 +36,7 @@ export function EntityDetailActions({
   stock: { quantity: string; unit: string } | null;
 }) {
   const router = useRouter();
+  const t = useT();
   const [editOpen, setEditOpen] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -49,7 +51,7 @@ export function EntityDetailActions({
       toast.error(result.error);
       return;
     }
-    toast.success("Record archived");
+    toast.success(t("record.actionsBar.archived"));
     router.push(`/t/${type.slug}`);
     router.refresh();
   }
@@ -57,13 +59,13 @@ export function EntityDetailActions({
   return (
     <div className="flex gap-2">
       <Button variant="outline" onClick={() => setEditOpen(true)}>
-        Edit
+        {t("common.edit")}
       </Button>
       <Button variant="outline" onClick={() => setSplitOpen(true)}>
-        Split
+        {t("record.actionsBar.split")}
       </Button>
       <Button variant={confirming ? "destructive" : "outline"} onClick={handleDelete}>
-        {confirming ? "Confirm delete" : "Delete"}
+        {confirming ? t("record.actionsBar.confirmDelete") : t("common.delete")}
       </Button>
       <EntityDialog
         key={`${entity.id}-${editOpen}`}

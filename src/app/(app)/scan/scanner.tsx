@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/i18n/client";
 
 /** Pull the record ID out of whatever the camera read. */
 export function codeFromScan(raw: string): string {
@@ -24,6 +25,7 @@ type Detector = {
 
 export function Scanner() {
   const router = useRouter();
+  const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [state, setState] = useState<"idle" | "running" | "unsupported" | "denied">("idle");
@@ -88,12 +90,12 @@ export function Scanner() {
           <div className="flex aspect-square w-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">
               {state === "unsupported"
-                ? "This browser can't use the camera scanner. Your phone's own camera app will still open a label — or type the ID below."
+                ? t("misc.scan.unsupported")
                 : state === "denied"
-                  ? "Camera permission was refused, so use the ID below instead."
-                  : "Point the camera at a label to open that record."}
+                  ? t("misc.scan.denied")
+                  : t("misc.scan.point")}
             </p>
-            {state !== "unsupported" && <Button onClick={start}>Start camera</Button>}
+            {state !== "unsupported" && <Button onClick={start}>{t("misc.scan.start")}</Button>}
           </div>
         )}
       </div>
@@ -108,11 +110,11 @@ export function Scanner() {
         <Input
           value={manual}
           onChange={(e) => setManual(e.target.value)}
-          placeholder="or type an ID, e.g. RGT-000006"
+          placeholder={t("misc.scan.placeholder")}
           className="font-mono"
         />
         <Button type="submit" variant="outline">
-          Open
+          {t("misc.scan.open")}
         </Button>
       </form>
     </div>

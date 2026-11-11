@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/client";
 
 /**
  * One tap between light and dark. The default follows the OS; the first tap
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
  */
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
+  const t = useT();
   // False during SSR and the first client render, true after — so the icon
   // never disagrees between server and client markup.
   const mounted = useSyncExternalStore(
@@ -24,7 +26,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       aria-label={
-        mounted && resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+        mounted && resolvedTheme === "dark" ? t("nav.toLight") : t("nav.toDark")
       }
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
     >

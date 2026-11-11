@@ -31,6 +31,7 @@ import {
   updateEntityTypeAction,
   deleteEntityTypeAction,
 } from "./actions";
+import { useT } from "@/i18n/client";
 
 const FIELD_TYPES: FieldType[] = [
   "text",
@@ -53,6 +54,7 @@ export interface ManagedType {
 
 export function TypesManager({ types }: { types: ManagedType[] }) {
   const router = useRouter();
+  const t = useT();
   const [editing, setEditing] = useState<ManagedType | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -62,16 +64,16 @@ export function TypesManager({ types }: { types: ManagedType[] }) {
       toast.error(result.error);
       return;
     }
-    toast.success(`Deleted ${type.name}`);
+    toast.success(t("settings.types.deleted", { name: type.name }));
     router.refresh();
   }
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Record types"
-        description="Define what you track and which fields each record carries — no code needed."
-        actions={<Button onClick={() => setCreating(true)}>New record type</Button>}
+        title={t("settings.types.title")}
+        description={t("settings.types.description")}
+        actions={<Button onClick={() => setCreating(true)}>{t("settings.types.new")}</Button>}
       />
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -87,28 +89,29 @@ export function TypesManager({ types }: { types: ManagedType[] }) {
                   {type.name}
                 </CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  IDs like <span className="font-mono">{type.prefix}-000001</span>
-                  {type.isInventory && " · tracks inventory"}
+                  {t("settings.types.idsLike")}{" "}
+                  <span className="font-mono">{type.prefix}-000001</span>
+                  {type.isInventory && t("settings.types.tracksInventory")}
                 </p>
               </div>
               <div className="flex gap-1">
                 <Button variant="outline" size="sm" onClick={() => setEditing(type)}>
-                  Edit
+                  {t("common.edit")}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => handleDelete(type)}>
-                  Delete
+                  {t("common.delete")}
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-1.5">
                 {type.fields.length === 0 && (
-                  <span className="text-sm text-muted-foreground">No custom fields.</span>
+                  <span className="text-sm text-muted-foreground">{t("settings.types.noFields")}</span>
                 )}
                 {type.fields.map((f) => (
                   <Badge key={f.key} variant="secondary" className="font-normal">
                     {f.label}
-                    <span className="ml-1 text-muted-foreground">{f.type}</span>
+                    <span className="ms-1 text-muted-foreground">{t(`settings.types.fieldTypes.${f.type}`)}</span>
                   </Badge>
                 ))}
               </div>
@@ -162,6 +165,7 @@ function TypeDialog({
   existing: ManagedType | null;
 }) {
   const router = useRouter();
+  const t = useT();
   const [name, setName] = useState(existing?.name ?? "");
   const [prefix, setPrefix] = useState(existing?.prefix ?? "");
   const [color, setColor] = useState(existing?.color ?? "#2563eb");
@@ -193,7 +197,7 @@ function TypeDialog({
       type: f.type,
       required: f.required,
       options: f.optionsText
-        ? f.optionsText.split(",").map((s) => s.trim()).filter(Boolean)
+        ? f.optionsText.split(/[,،]/).map((s) => s.trim()).filter(Boolean)
         : undefined,
       unit: f.unit || undefined,
     }));
@@ -207,7 +211,7 @@ function TypeDialog({
       toast.error(result.error);
       return;
     }
-    toast.success(existing ? "Record type updated" : "Record type created");
+    toast.success(existing ? t("settings.types.updated") : t("settings.types.created"));
     onOpenChange(false);
     router.refresh();
   }
@@ -216,26 +220,30 @@ function TypeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{existing ? `Edit ${existing.name}` : "New record type"}</DialogTitle>
+          <DialogTitle>
+            {existing
+              ? t("settings.types.editTitle", { name: existing.name })
+              : t("settings.types.new")}
+          </DialogTitle>
           <DialogDescription>
-            Removing a field hides it from forms; existing data is retained.
+            {t("settings.types.dialogDesc")}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="type-name">Name</Label>
+              <Label htmlFor="type-name">{t("common.name")}</Label>
               <Input
                 id="type-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Cell Line"
+                placeholder={t("settings.types.namePlaceholder")}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="type-prefix">ID prefix</Label>
+              <Label htmlFor="type-prefix">{t("settings.types.prefix")}</Label>
               <Input
                 id="type-prefix"
                 value={prefix}
@@ -245,7 +253,7 @@ function TypeDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="type-color">Color</Label>
+              <Label htmlFor="type-color">{t("settings.types.color")}</Label>
               <Input
                 id="type-color"
                 type="color"
@@ -261,12 +269,12 @@ function TypeDialog({
               checked={isInventory}
               onCheckedChange={(checked) => setIsInventory(Boolean(checked))}
             />
-            Track stock quantities for this type
+            {t("settings.types.trackStock")}
           </label>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Fields</Label>
+              <Label>{t("settings.types.fields")}</Label>
               <Button
                 type="button"
                 variant="outline"
@@ -278,13 +286,13 @@ function TypeDialog({
                   ])
                 }
               >
-                Add field
+                {t("settings.types.addField")}
               </Button>
             </div>
 
             {fields.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No fields yet — records will just have a name and status.
+                {t("settings.types.noFieldsYet")}
               </p>
             )}
 
@@ -294,7 +302,7 @@ function TypeDialog({
                   <Input
                     value={field.label}
                     onChange={(e) => updateField(i, { label: e.target.value })}
-                    placeholder="Field label"
+                    placeholder={t("settings.types.fieldLabel")}
                     className="flex-1"
                   />
                   <Select
@@ -305,23 +313,36 @@ function TypeDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {FIELD_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
+                      {FIELD_TYPES.map((ft) => (
+                        <SelectItem key={ft} value={ft}>
+                          {t(`settings.types.fieldTypes.${ft}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => move(i, -1)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label={t("settings.types.moveUp")}
+                    onClick={() => move(i, -1)}
+                  >
                     ↑
                   </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => move(i, 1)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label={t("settings.types.moveDown")}
+                    onClick={() => move(i, 1)}
+                  >
                     ↓
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
+                    aria-label={t("settings.types.removeField")}
                     onClick={() => setFields((prev) => prev.filter((_, idx) => idx !== i))}
                   >
                     ✕
@@ -334,13 +355,13 @@ function TypeDialog({
                       checked={field.required}
                       onCheckedChange={(checked) => updateField(i, { required: Boolean(checked) })}
                     />
-                    Required
+                    {t("settings.types.required")}
                   </label>
                   {(field.type === "select" || field.type === "multiselect") && (
                     <Input
                       value={field.optionsText}
                       onChange={(e) => updateField(i, { optionsText: e.target.value })}
-                      placeholder="Comma-separated options"
+                      placeholder={t("settings.types.options")}
                       className="flex-1"
                     />
                   )}
@@ -348,7 +369,7 @@ function TypeDialog({
                     <Input
                       value={field.unit}
                       onChange={(e) => updateField(i, { unit: e.target.value })}
-                      placeholder="Unit (e.g. µL)"
+                      placeholder={t("settings.types.unitPlaceholder")}
                       className="w-40"
                     />
                   )}
@@ -359,10 +380,14 @@ function TypeDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : existing ? "Save changes" : "Create"}
+              {pending
+                ? t("common.saving")
+                : existing
+                  ? t("record.dialog.saveChanges")
+                  : t("common.create")}
             </Button>
           </DialogFooter>
         </form>

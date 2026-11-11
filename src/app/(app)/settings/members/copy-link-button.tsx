@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/client";
 
 /** Copies the full invite URL, since a path fragment helps nobody in Telegram. */
 export function CopyLinkButton({ path }: { path: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   return (
@@ -20,7 +22,7 @@ export function CopyLinkButton({ path }: { path: string }) {
       }}
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-      {copied ? "Copied" : "Copy invite link"}
+      {copied ? t("settings.members.copied") : t("settings.members.copyLink")}
     </Button>
   );
 }

@@ -24,11 +24,12 @@ import {
   allowedNext,
   needsResponse,
   OPEN_STATUSES,
-  STATUS_LABELS,
   type BiobankStatus,
 } from "@/lib/biobank-flow";
 import { cn } from "@/lib/utils";
 import { createBiobankRequestAction, setBiobankStatusAction } from "./actions";
+import { useT } from "@/i18n/client";
+import { intlTag, type Locale } from "@/i18n/config";
 
 /** A stock-tracked record the biobank can take from (managers only). */
 export interface StockOption {
@@ -76,16 +77,6 @@ const STATUS_STYLE: Record<BiobankStatus, string> = {
   cancelled: "border-border bg-muted text-muted-foreground",
 };
 
-/** Button wording for each move, from the point of view of whoever clicks it. */
-const ACTION_LABEL: Record<BiobankStatus, string> = {
-  requested: "Reopen",
-  processing: "Start processing",
-  ready: "Ready for pickup",
-  collected: "Mark collected",
-  declined: "Decline",
-  cancelled: "Cancel request",
-};
-
 const QUIET: BiobankStatus[] = ["declined", "cancelled", "requested"];
 
 export function BiobankView({
@@ -102,6 +93,7 @@ export function BiobankView({
   stockOptions: StockOption[];
 }) {
   // The biobank wants the whole queue; everyone else mostly wants their own.
+  const t = useT();
   const [mineOnly, setMineOnly] = useState(!canManage);
   const [creating, setCreating] = useState(false);
   const [moving, setMoving] = useState<{ row: BiobankRow; to: BiobankStatus } | null>(null);
@@ -116,19 +108,17 @@ export function BiobankView({
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Biobank requests"
-        description={
-          canManage
-            ? "What people have asked the biobank for. Move each one along so they know when to come and collect it."
-            : "Ask the biobank for samples, reagents or anything else in the lab, and see when it's ready to pick up."
+        title={t("biobank.title")}
+        description={canManage ? t("biobank.descManager") : t("biobank.descMember")}
+        actions={
+          canRequest && <Button onClick={() => setCreating(true)}>{t("biobank.newRequest")}</Button>
         }
-        actions={canRequest && <Button onClick={() => setCreating(true)}>New request</Button>}
       />
 
-      <div className="flex items-center gap-1 text-sm" role="group" aria-label="Whose requests">
+      <div className="flex items-center gap-1 text-sm" role="group" aria-label={t("biobank.whose")}>
         {[
-          { mine: false, label: "Everyone's" },
-          { mine: true, label: "Mine" },
+          { mine: false, label: t("biobank.everyones") },
+          { mine: true, label: t("biobank.mine") },
         ].map((opt) => (
           <Button
             key={opt.label}
@@ -143,11 +133,13 @@ export function BiobankView({
       </div>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Open ({open.length})</h2>
+        <h2 className="text-sm font-medium text-muted-foreground">
+          {t("biobank.open", { count: open.length })}
+        </h2>
         {open.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              {mineOnly ? "You have no open requests." : "No open requests."}
+              {mineOnly ? t("biobank.noneMine") : t("biobank.none")}
             </CardContent>
           </Card>
         ) : (
@@ -167,7 +159,9 @@ export function BiobankView({
 
       {closed.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">Closed ({closed.length})</h2>
+          <h2 className="text-sm font-medium text-muted-foreground">
+            {t("biobank.closed", { count: closed.length })}
+          </h2>
           <div className="grid gap-3 lg:grid-cols-2">
             {closed.map((row) => (
               <RequestCard
@@ -204,6 +198,7 @@ function RequestCard({
   canManage: boolean;
   onMove: (to: BiobankStatus) => void;
 }) {
+  const t = useT();
   const hats: ("biobank" | "requester")[] = [];
   if (canManage) hats.push("biobank");
   if (row.requestedBy === userId) hats.push("requester");
@@ -218,17 +213,16 @@ function RequestCard({
           <div className="min-w-0">
             <p className="font-medium">{row.title}</p>
             <p className="text-xs text-muted-foreground">
-              {row.requesterName ?? "Someone"} · {formatDate(row.createdAt)}
+              {row.requesterName ?? t("common.someone")} · {formatDate(row.createdAt, t.locale)}
               {row.neededBy && (
                 <span className={cn(overdue && "font-medium text-red-600 dark:text-red-400")}>
-                  {" "}
-                  · needed by {formatDate(row.neededBy)}
+                  {t("biobank.neededBy", { date: formatDate(row.neededBy, t.locale) })}
                 </span>
               )}
             </p>
           </div>
           <Badge variant="outline" className={cn("shrink-0", STATUS_STYLE[row.status])}>
-            {STATUS_LABELS[row.status]}
+            {t(`biobank.statuses.${row.status}`)}
           </Badge>
         </div>
 
@@ -244,7 +238,7 @@ function RequestCard({
                 <span>{item.name}</span>
                 <StockNote item={item} open={OPEN_STATUSES.includes(row.status)} />
                 {item.where && (
-                  <span className="ml-auto text-xs text-muted-foreground">{item.where}</span>
+                  <span className="ms-auto text-xs text-muted-foreground">{item.where}</span>
                 )}
               </li>
             ))}
@@ -252,9 +246,9 @@ function RequestCard({
         )}
 
         {row.response && (
-          <p className="rounded-md border-l-2 border-primary/50 bg-primary/5 px-3 py-2 text-sm">
+          <p className="rounded-md border-s-2 border-primary/50 bg-primary/5 px-3 py-2 text-sm">
             <span className="text-xs font-medium text-muted-foreground">
-              {row.handlerName ?? "Biobank"}:{" "}
+              {row.handlerName ?? t("biobank.biobank")}:{" "}
             </span>
             {row.response}
           </p>
@@ -271,7 +265,7 @@ function RequestCard({
                   variant={QUIET.includes(to) || stepBack ? "outline" : "default"}
                   onClick={() => onMove(to)}
                 >
-                  {stepBack ? "Back to processing" : ACTION_LABEL[to]}
+                  {stepBack ? t("biobank.backToProcessing") : t(`biobank.actions.${to}`)}
                 </Button>
               );
             })}
@@ -284,12 +278,13 @@ function RequestCard({
 
 /** What this request means for the item's stock, in one short phrase. */
 function StockNote({ item, open }: { item: BiobankRow["items"][number]; open: boolean }) {
+  const t = useT();
   if (!item.stock) return null;
   const unit = item.stock.unit;
   if (item.takenQuantity) {
     return (
       <span className="text-xs text-emerald-700 dark:text-emerald-300">
-        {tidy(item.takenQuantity)} {unit} taken from stock
+        {t("biobank.taken", { quantity: tidy(item.takenQuantity), unit })}
       </span>
     );
   }
@@ -298,9 +293,9 @@ function StockNote({ item, open }: { item: BiobankRow["items"][number]; open: bo
   const short = item.quantity !== null && Number(item.quantity) > Number(item.stock.quantity);
   return (
     <span className="text-xs text-muted-foreground">
-      {item.quantity && <>{tidy(item.quantity)} {unit} asked · </>}
+      {item.quantity && t("biobank.asked", { quantity: tidy(item.quantity), unit })}
       <span className={cn(short && "font-medium text-red-600 dark:text-red-400")}>
-        {tidy(item.stock.quantity)} {unit} in stock
+        {t("biobank.inStock", { quantity: tidy(item.stock.quantity), unit })}
       </span>
     </span>
   );
@@ -315,13 +310,14 @@ function AmountInput({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useT();
   return (
     <Input
-      aria-label={`Amount of ${label} to take`}
+      aria-label={t("biobank.amountOf", { label })}
       type="number"
       step="any"
       min="0"
-      placeholder="amount"
+      placeholder={t("biobank.amount")}
       className="h-8 w-24"
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -349,6 +345,7 @@ function MoveDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const t = useT();
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -399,9 +396,10 @@ function MoveDialog({
       const took =
         takeable.filter((i) => Number(amounts[i.id]) > 0).length +
         extra.filter((x) => Number(x.amount) > 0).length;
-      toast.success(`${move.row.title} — ${STATUS_LABELS[move.to].toLowerCase()}`, {
-        description: took ? `Taken from stock for ${took} item${took === 1 ? "" : "s"}` : undefined,
-      });
+      toast.success(
+        t("biobank.moved", { title: move.row.title, status: t(`biobank.statuses.${move.to}`) }),
+        { description: took ? t("biobank.takenFor", { count: took }) : undefined }
+      );
       setNote("");
       setError(null);
       onClose();
@@ -422,20 +420,19 @@ function MoveDialog({
     >
       <DialogContent className={cn("max-h-[85vh] overflow-y-auto", ready ? "sm:max-w-lg" : "sm:max-w-md")}>
         <DialogHeader>
-          <DialogTitle>{to ? ACTION_LABEL[to] : ""}</DialogTitle>
+          <DialogTitle>{to ? t(`biobank.actions.${to}`) : ""}</DialogTitle>
           <DialogDescription>{move?.row.title}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           {ready && (
             <fieldset className="space-y-2">
-              <legend className="text-sm font-medium">Take from stock</legend>
+              <legend className="text-sm font-medium">{t("biobank.takeFromStock")}</legend>
               <p className="text-xs text-muted-foreground">
-                Deducted when you save, exactly as on the Use stock page. Leave an amount blank
-                to take nothing.
+                {t("biobank.takeHelp")}
               </p>
               {move?.row.details && (
                 <p className="rounded-md bg-muted/50 px-2 py-1.5 text-xs whitespace-pre-wrap">
-                  <span className="font-medium">They asked: </span>
+                  <span className="font-medium">{t("biobank.theyAsked")}</span>
                   {move.row.details}
                 </p>
               )}
@@ -447,7 +444,10 @@ function MoveDialog({
                       <span className="min-w-0 flex-1 truncate">{item.name}</span>
                       {item.takenQuantity ? (
                         <span className="text-xs text-muted-foreground">
-                          {tidy(item.takenQuantity)} {item.stock?.unit} already taken
+                          {t("biobank.alreadyTaken", {
+                            quantity: tidy(item.takenQuantity),
+                            unit: item.stock?.unit ?? "",
+                          })}
                         </span>
                       ) : item.stock ? (
                         <>
@@ -457,11 +457,11 @@ function MoveDialog({
                             onChange={(v) => setAmounts((prev) => ({ ...prev, [item.id]: v }))}
                           />
                           <span className="w-28 text-xs text-muted-foreground">
-                            {item.stock.unit} of {tidy(item.stock.quantity)}
+                            {t("biobank.unitOf", { unit: item.stock.unit, quantity: tidy(item.stock.quantity) })}
                           </span>
                         </>
                       ) : (
-                        <span className="text-xs text-muted-foreground">stock not tracked</span>
+                        <span className="text-xs text-muted-foreground">{t("biobank.notTracked")}</span>
                       )}
                     </li>
                   ))}
@@ -477,11 +477,11 @@ function MoveDialog({
                         }
                       />
                       <span className="w-28 text-xs text-muted-foreground">
-                        {x.unit} of {tidy(x.quantity)}
+                        {t("biobank.unitOf", { unit: x.unit, quantity: tidy(x.quantity) })}
                       </span>
                       <button
                         type="button"
-                        aria-label={`Remove ${x.displayId}`}
+                        aria-label={t("biobank.removeItem", { id: x.displayId })}
                         className="rounded-full p-1 hover:bg-muted"
                         onClick={() => setExtra((prev) => prev.filter((p) => p.entityId !== x.entityId))}
                       >
@@ -492,8 +492,8 @@ function MoveDialog({
                 </ul>
               )}
               <Input
-                aria-label="Add an item from stock"
-                placeholder="Add an item from stock…"
+                aria-label={t("biobank.addFromStock")}
+                placeholder={t("biobank.addFromStockPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {
@@ -512,7 +512,7 @@ function MoveDialog({
                     <li key={o.entityId}>
                       <button
                         type="button"
-                        className="flex w-full items-baseline gap-2 px-2 py-1.5 text-left hover:bg-muted"
+                        className="flex w-full items-baseline gap-2 px-2 py-1.5 text-start hover:bg-muted"
                         onClick={() => {
                           setExtra((prev) => [...prev, { ...o, amount: "" }]);
                           setSearch("");
@@ -530,8 +530,7 @@ function MoveDialog({
               )}
               {q && matches.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  No stock-tracked item matches. Only record types with stock tracking turned on
-                  can be taken from stock.
+                  {t("biobank.noStockMatch")}
                 </p>
               )}
             </fieldset>
@@ -540,10 +539,10 @@ function MoveDialog({
             <div className="space-y-1.5">
               <Label htmlFor="move-note">
                 {to === "ready"
-                  ? "Where to collect it (optional)"
+                  ? t("biobank.whereToCollect")
                   : to === "declined"
-                    ? "Reason"
-                    : "Note for the requester (optional)"}
+                    ? t("biobank.reason")
+                    : t("biobank.noteForRequester")}
               </Label>
               <Textarea
                 id="move-note"
@@ -551,16 +550,16 @@ function MoveDialog({
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={
                   to === "ready"
-                    ? "e.g. Front desk, -20 °C freezer B, top shelf"
+                    ? t("biobank.wherePlaceholder")
                     : to === "declined"
-                      ? "e.g. Consent doesn't cover this use"
-                      : "e.g. Thawing now, should be ready Thursday"
+                      ? t("biobank.reasonPlaceholder")
+                      : t("biobank.notePlaceholder")
                 }
                 required={to ? needsResponse(to) : false}
               />
               {to === "ready" && (
                 <p className="text-xs text-muted-foreground">
-                  The requester gets an email when it&apos;s ready, if email is set up for this lab.
+                  {t("biobank.emailNote")}
                 </p>
               )}
             </div>
@@ -568,10 +567,10 @@ function MoveDialog({
           {error && <p className="text-sm text-red-600">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Back
+              {t("common.back")}
             </Button>
             <Button type="submit" disabled={pending} variant={to === "declined" || to === "cancelled" ? "destructive" : "default"}>
-              {pending ? "Saving…" : to ? ACTION_LABEL[to] : ""}
+              {pending ? t("common.saving") : to ? t(`biobank.actions.${to}`) : ""}
             </Button>
           </DialogFooter>
         </form>
@@ -595,6 +594,7 @@ function NewRequestDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const t = useT();
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [neededBy, setNeededBy] = useState("");
@@ -652,7 +652,7 @@ function NewRequestDialog({
         toast.error(result.error);
         return;
       }
-      toast.success("Request sent to the biobank");
+      toast.success(t("biobank.sent"));
       reset();
       onOpenChange(false);
       router.refresh();
@@ -663,29 +663,28 @@ function NewRequestDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Request from the biobank</DialogTitle>
+          <DialogTitle>{t("biobank.newTitle")}</DialogTitle>
           <DialogDescription>
-            Say what you need — samples, reagents, anything in the lab. If you know which
-            items, add them, and put amounts in the details.
+            {t("biobank.newDesc")}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="bb-title">
-              What do you need?<span className="ml-0.5 text-red-600">*</span>
+              {t("biobank.what")}<span className="ms-0.5 text-red-600">*</span>
             </Label>
             <Input
               id="bb-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. 3 aliquots of PT-014 plasma for ELISA"
+              placeholder={t("biobank.whatPlaceholder")}
               required
             />
             {errors.title && <p className="text-xs text-red-600">{errors.title}</p>}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="bb-records">Specific items (optional)</Label>
+            <Label htmlFor="bb-records">{t("biobank.specific")}</Label>
             {picked.length > 0 && (
               <ul className="divide-y rounded-md border text-sm">
                 {picked.map((p) => (
@@ -695,7 +694,7 @@ function NewRequestDialog({
                     <span className="text-xs text-muted-foreground">{p.typeName}</span>
                     <button
                       type="button"
-                      aria-label={`Remove ${p.displayId}`}
+                      aria-label={t("biobank.removeItem", { id: p.displayId })}
                       className="rounded-full p-1 hover:bg-muted"
                       onClick={() => setPicked((prev) => prev.filter((x) => x.displayId !== p.displayId))}
                     >
@@ -709,7 +708,7 @@ function NewRequestDialog({
               id="bb-records"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name or ID…"
+              placeholder={t("registry.searchPlaceholder")}
               autoComplete="off"
               onKeyDown={(e) => {
                 // Enter picks the top match rather than sending a half-filled request.
@@ -724,7 +723,7 @@ function NewRequestDialog({
                   <li key={r.displayId}>
                     <button
                       type="button"
-                      className="flex w-full items-baseline gap-2 px-2 py-1.5 text-left hover:bg-muted"
+                      className="flex w-full items-baseline gap-2 px-2 py-1.5 text-start hover:bg-muted"
                       onClick={() => pick(r)}
                     >
                       <span className="font-mono text-xs text-muted-foreground">{r.displayId}</span>
@@ -739,17 +738,17 @@ function NewRequestDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="bb-details">Details (optional)</Label>
+            <Label htmlFor="bb-details">{t("biobank.detailsLabel")}</Label>
             <Textarea
               id="bb-details"
               value={details}
               onChange={(e) => setDetails(e.target.value)}
-              placeholder="Volumes, how many aliquots, thawed or frozen, which project it's for…"
+              placeholder={t("biobank.detailsPlaceholder")}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="bb-needed">Needed by (optional)</Label>
+            <Label htmlFor="bb-needed">{t("biobank.neededByLabel")}</Label>
             <Input
               id="bb-needed"
               type="date"
@@ -762,10 +761,10 @@ function NewRequestDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Sending…" : "Send request"}
+              {pending ? t("biobank.sending") : t("biobank.send")}
             </Button>
           </DialogFooter>
         </form>
@@ -774,9 +773,11 @@ function NewRequestDialog({
   );
 }
 
-const DATE_FORMAT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-
-/** Fixed locale and zone, so the server render and the browser agree. */
-function formatDate(iso: string) {
-  return DATE_FORMAT.format(new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso));
+/** Fixed zone, so the server render and the browser agree. */
+function formatDate(iso: string, locale: Locale) {
+  return new Intl.DateTimeFormat(intlTag(locale), {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso));
 }

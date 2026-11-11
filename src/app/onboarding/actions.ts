@@ -5,17 +5,28 @@ import { auth } from "@/lib/auth";
 import { getSession } from "@/lib/tenant";
 import { seedOrganization } from "@/lib/services/seed-org";
 import type { ActionResult } from "@/lib/action-result";
+import { getT } from "@/i18n/server";
+import { translateServerMessage } from "@/i18n/server-errors";
 
+/**
+ * A URL-safe slug. Names with no Latin letters (Persian, say) would all come
+ * out as plain "lab" and exhaust the retries after a handful of labs, so they
+ * get a random tail instead.
+ */
 function slugify(name: string) {
-  return (
-    name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "lab"
-  );
+  const ascii = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return ascii || `lab-${crypto.randomUUID().slice(0, 8)}`;
 }
 
 export async function createOrganizationAction(name: string): Promise<ActionResult> {
   const session = await getSession();
-  if (!session) return { error: "Not signed in" };
-  if (!name.trim()) return { error: "Name is required" };
+  const t = await getT();
+  if (!session) return { error: t("errors.notSignedIn") };
+  if (!name.trim()) return { error: t("errors.nameRequired") };
 
   const base = slugify(name);
   // Slugs are globally unique; retry with a suffix on collision.
@@ -26,7 +37,7 @@ export async function createOrganizationAction(name: string): Promise<ActionResu
         headers: await headers(),
         body: { name: name.trim(), slug, userId: session.user.id },
       });
-      if (!org) return { error: "Could not create organization" };
+      if (!org) return { error: t("errors.couldNotCreateOrg") };
       await auth.api.setActiveOrganization({
         headers: await headers(),
         body: { organizationId: org.id },
@@ -35,8 +46,8 @@ export async function createOrganizationAction(name: string): Promise<ActionResu
       return { ok: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (!/slug/i.test(message)) return { error: message };
+      if (!/slug/i.test(message)) return { error: translateServerMessage(message, t) };
     }
   }
-  return { error: "Could not find an available lab slug — try a different name" };
+  return { error: t("errors.noSlug") };
 }

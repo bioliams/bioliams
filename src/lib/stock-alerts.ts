@@ -1,4 +1,9 @@
 import type { StockAlertKind } from "@/db/schema/lims";
+import { intlTag, type Locale } from "@/i18n/config";
+import { createT, type T } from "@/i18n/translate";
+import { en } from "@/i18n/messages/en";
+
+const englishT = createT("en", en);
 
 /** How far ahead an expiry date starts raising an alarm. */
 export const EXPIRY_WARNING_DAYS = 30;
@@ -45,17 +50,29 @@ function tidy(n: string) {
   return String(Number(n));
 }
 
+/** How an expiry date is written: ISO in English, the Solar Hijri day in Persian. */
+export function expiryLabel(d: Date, locale: Locale) {
+  if (locale === "en") return d.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat(intlTag(locale), { dateStyle: "medium", timeZone: "UTC" }).format(d);
+}
+
 /**
- * Which alarms an item should have open right now.
+ * Which alarms an item should have open right now, worded by `t` (English
+ * unless told otherwise — that's what is stored and emailed).
  *
  * Stock and expiry are independent: a bottle can be both out of date and
  * nearly empty. Within each, only the worse state is raised — an item that is
  * out of stock is not also "low", and an expired one is not also "expiring".
  */
-export function evaluateStock(item: StockState, now: Date = new Date()): StockAlert[] {
+export function evaluateStock(
+  item: StockState,
+  now: Date = new Date(),
+  t: T = englishT
+): StockAlert[] {
   const alerts: StockAlert[] = [];
   const qty = Number(item.quantity);
   const zero = Number(item.zeroPoint);
+  const vars = { name: item.name, unit: item.unit, quantity: tidy(item.quantity) };
 
   const tracked = item.hasMovements !== false || qty > 0;
 
@@ -66,41 +83,34 @@ export function evaluateStock(item: StockState, now: Date = new Date()): StockAl
       kind: "out_of_stock",
       message:
         zero > 0
-          ? `${item.name} is out of stock — ${tidy(item.quantity)} ${item.unit} left, at or below its zero point of ${tidy(item.zeroPoint)} ${item.unit}`
-          : `${item.name} is out of stock`,
+          ? t("alerts.outOfStockZero", { ...vars, zero: tidy(item.zeroPoint) })
+          : t("alerts.outOfStock", vars),
     });
   } else if (item.minThreshold !== null && qty <= Number(item.minThreshold)) {
     alerts.push({
       kind: "low_stock",
-      message: `${item.name} is running low — ${tidy(item.quantity)} ${item.unit} left (minimum ${tidy(item.minThreshold)} ${item.unit})`,
+      message: t("alerts.lowStock", { ...vars, min: tidy(item.minThreshold) }),
     });
   }
 
   if (item.expiresAt) {
     const days = daysUntil(item.expiresAt, now);
-    const date = item.expiresAt.toISOString().slice(0, 10);
+    const date = expiryLabel(item.expiresAt, t.locale);
     if (days < 0) {
-      alerts.push({ kind: "expired", message: `${item.name} expired on ${date}` });
+      alerts.push({ kind: "expired", message: t("alerts.expired", { name: item.name, date }) });
     } else if (days <= EXPIRY_WARNING_DAYS) {
       alerts.push({
         kind: "expiring",
         message:
           days === 0
-            ? `${item.name} expires today (${date})`
-            : `${item.name} expires in ${days} day${days === 1 ? "" : "s"} (${date})`,
+            ? t("alerts.expiresToday", { name: item.name, date })
+            : t("alerts.expiresIn", { name: item.name, date, count: days }),
       });
     }
   }
 
   return alerts;
 }
-
-export const ALERT_LABELS: Record<StockAlertKind, string> = {
-  expired: "Expired",
-  expiring: "Expiring soon",
-  out_of_stock: "Out of stock",
-  low_stock: "Low stock",
-};
 
 /** Parse a YYYY-MM-DD form value into the stored midnight-UTC date. */
 export function parseExpiryDate(value: string | null | undefined): Date | null {

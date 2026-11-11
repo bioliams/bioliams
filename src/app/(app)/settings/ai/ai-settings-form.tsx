@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/i18n/client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,30 +12,30 @@ import { saveAiSettingsAction } from "@/app/(app)/assistant/actions";
 
 const PRESETS = [
   {
-    name: "Google Gemini (free tier)",
+    name: "gemini",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
     model: "gemini-flash-latest",
-    hint: "Key from aistudio.google.com — no card needed",
+    hint: "geminiHint",
   },
   {
-    name: "Groq (free tier)",
+    name: "groq",
     baseUrl: "https://api.groq.com/openai/v1",
     model: "llama-3.3-70b-versatile",
-    hint: "Key from console.groq.com",
+    hint: "groqHint",
   },
   {
-    name: "Ollama (self-hosted)",
+    name: "ollama",
     baseUrl: "http://localhost:11434/v1",
     model: "llama3.1",
-    hint: "Free forever; data never leaves your machine",
+    hint: "ollamaHint",
   },
   {
-    name: "OpenAI",
+    name: "openai",
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-4o-mini",
-    hint: "Paid",
+    hint: "openaiHint",
   },
-];
+] as const;
 
 export function AiSettingsForm({
   canEdit,
@@ -46,6 +47,7 @@ export function AiSettingsForm({
   sharedAvailable: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
   const [baseUrl, setBaseUrl] = useState(current.baseUrl);
   const [model, setModel] = useState(current.model);
   const [apiKey, setApiKey] = useState("");
@@ -55,12 +57,12 @@ export function AiSettingsForm({
     return (
       <Card>
         <CardContent className="py-8 text-sm text-muted-foreground">
-          Only owners and admins can change the AI provider.
+          {t("settings.ai.onlyAdmins")}
           {current.hasKey
-            ? " This lab has its own key configured."
+            ? t("settings.ai.ownKey")
             : sharedAvailable
-              ? " This lab currently uses the deployment's shared model."
-              : " Nothing is configured yet."}
+              ? t("settings.ai.shared")
+              : t("settings.ai.nothing")}
         </CardContent>
       </Card>
     );
@@ -79,7 +81,7 @@ export function AiSettingsForm({
         toast.error(result.error);
         return;
       }
-      toast.success("AI settings saved");
+      toast.success(t("settings.ai.saved"));
       setApiKey("");
       router.refresh();
     });
@@ -92,14 +94,14 @@ export function AiSettingsForm({
           <button
             key={preset.name}
             type="button"
-            title={preset.hint}
+            title={t(`settings.ai.presets.${preset.hint}`)}
             onClick={() => {
               setBaseUrl(preset.baseUrl);
               setModel(preset.model);
             }}
             className="rounded-full border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           >
-            {preset.name}
+            {t(`settings.ai.presets.${preset.name}`)}
           </button>
         ))}
       </div>
@@ -108,7 +110,7 @@ export function AiSettingsForm({
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="ai-base">Base URL</Label>
+              <Label htmlFor="ai-base">{t("settings.ai.baseUrl")}</Label>
               <Input
                 id="ai-base"
                 value={baseUrl}
@@ -118,7 +120,7 @@ export function AiSettingsForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ai-model">Model</Label>
+              <Label htmlFor="ai-model">{t("settings.ai.model")}</Label>
               <Input
                 id="ai-model"
                 value={model}
@@ -129,12 +131,12 @@ export function AiSettingsForm({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ai-key">
-                API key{" "}
+                {t("settings.ai.apiKey")}{" "}
                 <span className="font-normal text-muted-foreground">
                   {current.hasKey
-                    ? "— one is stored; leave blank to keep it, or type “clear” to remove it"
+                    ? t("settings.ai.keyStored")
                     : sharedAvailable
-                      ? "— blank uses the deployment's shared model"
+                      ? t("settings.ai.blankShared")
                       : ""}
                 </span>
               </Label>
@@ -143,21 +145,19 @@ export function AiSettingsForm({
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder={current.hasKey ? "••••••••" : "Paste a key"}
+                placeholder={current.hasKey ? "••••••••" : t("settings.ai.paste")}
                 className="font-mono text-sm"
               />
             </div>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save"}
+              {pending ? t("common.saving") : t("common.save")}
             </Button>
           </form>
         </CardContent>
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        The key is stored with this lab and used only server-side to call your chosen
-        provider. The assistant is read-only: it searches records and stock through the same
-        permission-checked services as every page, and cannot change anything.
+        {t("settings.ai.footnote")}
       </p>
     </div>
   );

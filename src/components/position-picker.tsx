@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getOccupancyAction } from "@/app/(app)/locations/actions";
 import { wellLabel } from "@/lib/well";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/client";
 
 export type Position = { row: number; col: number } | null;
 
@@ -35,6 +36,7 @@ export function PositionPicker({
   /** When editing, the record itself — its own well isn't "taken". */
   entityId?: string;
 }) {
+  const t = useT();
   // Keyed by location so a stale answer for the previous box is never shown.
   const [loaded, setLoaded] = useState<{ locationId: string; occupants: Occupant[] } | null>(null);
   const [failure, setFailure] = useState<{ locationId: string; message: string } | null>(null);
@@ -59,7 +61,11 @@ export function PositionPicker({
   const free = rows * cols - taken.size;
 
   if (failure?.locationId === locationId) {
-    return <p className="text-xs text-red-600">Couldn&apos;t load the grid: {failure.message}</p>;
+    return (
+      <p className="text-xs text-red-600">
+        {t("record.position.loadFailed", { message: failure.message })}
+      </p>
+    );
   }
 
   return (
@@ -68,25 +74,25 @@ export function PositionPicker({
         <span>
           {value ? (
             <>
-              Position <span className="font-medium text-foreground">{wellLabel(value.row, value.col)}</span>{" "}
+              {t("record.position.position")} <span className="font-medium text-foreground">{wellLabel(value.row, value.col)}</span>{" "}
               <button type="button" className="underline" onClick={() => onChange(null)}>
-                clear
+                {t("record.position.clear")}
               </button>
             </>
           ) : (
-            "Click a free well, or leave it unplaced."
+            t("record.position.pick")
           )}
         </span>
         {occupants && (
           <span className="tabular-nums">
-            {free} of {rows * cols} free
+            {t("record.position.free", { free, total: rows * cols })}
           </span>
         )}
       </div>
-      <div className="overflow-x-auto pb-1">
+      <div className="overflow-x-auto pb-1" dir="ltr">
         <div
           role="grid"
-          aria-label="Position in box"
+          aria-label={t("record.position.gridLabel")}
           className={cn("grid w-fit gap-0.5", !occupants && "animate-pulse opacity-50")}
           style={{ gridTemplateColumns: `auto repeat(${cols}, 1.75rem)` }}
         >
@@ -102,6 +108,7 @@ export function PositionPicker({
               row={r}
               cols={cols}
               taken={taken}
+              takenLabel={(label, id) => t("record.position.takenBy", { label, id })}
               ready={Boolean(occupants)}
               value={value}
               onChange={onChange}
@@ -117,6 +124,7 @@ function Row({
   row,
   cols,
   taken,
+  takenLabel,
   ready,
   value,
   onChange,
@@ -124,13 +132,14 @@ function Row({
   row: number;
   cols: number;
   taken: Map<string, Occupant>;
+  takenLabel: (label: string, id: string) => string;
   ready: boolean;
   value: Position;
   onChange: (value: Position) => void;
 }) {
   return (
     <>
-      <div className="pr-1 text-right text-[10px] leading-7 text-muted-foreground">
+      <div className="pe-1 text-end text-[10px] leading-7 text-muted-foreground">
         {String.fromCharCode(65 + row)}
       </div>
       {Array.from({ length: cols }, (_, col) => {
@@ -143,7 +152,7 @@ function Row({
             type="button"
             disabled={!ready || Boolean(occupant)}
             aria-pressed={selected}
-            aria-label={occupant ? `${label}, taken by ${occupant.displayId}` : label}
+            aria-label={occupant ? takenLabel(label, occupant.displayId) : label}
             title={occupant ? `${label} — ${occupant.displayId} ${occupant.name}` : label}
             onClick={() => onChange(selected ? null : { row, col })}
             className={cn(

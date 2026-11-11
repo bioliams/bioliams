@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useT } from "@/i18n/client";
+import { kindLabel } from "@/i18n/labels";
 import { PageHeader } from "@/components/page-header";
 import type { LocationNode, LocationKind } from "@/lib/services/locations";
 import {
@@ -72,6 +74,7 @@ export function LocationsView({
   selected: SelectedLocation | null;
 }) {
   const router = useRouter();
+  const t = useT();
   const [addOpen, setAddOpen] = useState(false);
 
   async function handleDelete(id: string, name: string) {
@@ -80,7 +83,7 @@ export function LocationsView({
       toast.error(result.error);
       return;
     }
-    toast.success(`Deleted ${name}`);
+    toast.success(t("storage.deleted", { name }));
     router.replace("/locations");
     router.refresh();
   }
@@ -88,19 +91,19 @@ export function LocationsView({
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Storage"
-        description="Freezers, racks and boxes. Select a box or rack to see its grid."
-        actions={<Button onClick={() => setAddOpen(true)}>Add location</Button>}
+        title={t("storage.title")}
+        description={t("storage.description")}
+        actions={<Button onClick={() => setAddOpen(true)}>{t("storage.add")}</Button>}
       />
 
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Hierarchy</CardTitle>
+            <CardTitle className="text-base">{t("storage.hierarchy")}</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             {tree.length === 0 ? (
-              <p className="text-muted-foreground">No locations yet.</p>
+              <p className="text-muted-foreground">{t("storage.none")}</p>
             ) : (
               <ul className="space-y-1">
                 {tree.map((node) => (
@@ -116,14 +119,14 @@ export function LocationsView({
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base">
                 {selected.name}{" "}
-                <span className="font-normal text-muted-foreground">({selected.kind})</span>
+                <span className="font-normal text-muted-foreground">({kindLabel(t, selected.kind)})</span>
               </CardTitle>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleDelete(selected.id, selected.name)}
               >
-                Delete
+                {t("common.delete")}
               </Button>
             </CardHeader>
             <CardContent>
@@ -138,8 +141,8 @@ export function LocationsView({
           <Card>
             <CardContent className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted-foreground">
               <Snowflake className="size-8 opacity-30" />
-              <p>Pick a freezer or box on the left to see what&rsquo;s inside.</p>
-              <p className="text-xs">Boxes and gridded racks show every occupied well.</p>
+              <p>{t("storage.pick")}</p>
+              <p className="text-xs">{t("storage.pickHint")}</p>
             </CardContent>
           </Card>
         )}
@@ -159,6 +162,7 @@ function TreeNode({
   depth: number;
   selectedId?: string;
 }) {
+  const t = useT();
   return (
     <li>
       <Link
@@ -166,8 +170,8 @@ function TreeNode({
         className={`flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted ${
           selectedId === node.id ? "bg-accent font-medium text-accent-foreground" : ""
         }`}
-        style={{ paddingLeft: `${depth * 14 + 8}px` }}
-        title={node.kind}
+        style={{ paddingInlineStart: `${depth * 14 + 8}px` }}
+        title={kindLabel(t, node.kind)}
       >
         {(() => {
           const Icon = KIND_ICONS[node.kind];
@@ -175,7 +179,7 @@ function TreeNode({
         })()}
         <span className="min-w-0 truncate">{node.name}</span>
         {node.itemCount > 0 && (
-          <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
+          <span className="ms-auto shrink-0 rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
             {node.itemCount}
           </span>
         )}
@@ -192,8 +196,9 @@ function TreeNode({
 }
 
 function ContentsList({ selected }: { selected: SelectedLocation }) {
+  const t = useT();
   if (selected.contents.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nothing stored here.</p>;
+    return <p className="text-sm text-muted-foreground">{t("storage.nothingHere")}</p>;
   }
   return (
     <ul className="space-y-1 text-sm">
@@ -210,6 +215,7 @@ function ContentsList({ selected }: { selected: SelectedLocation }) {
 /** Renders an r×c box, with occupied wells labelled and click-to-clear. */
 function BoxGrid({ selected }: { selected: SelectedLocation }) {
   const router = useRouter();
+  const t = useT();
   const rows = selected.gridRows!;
   const cols = selected.gridCols!;
 
@@ -227,7 +233,7 @@ function BoxGrid({ selected }: { selected: SelectedLocation }) {
     const result = await assignPositionAction(entityId, selected.id, null, null);
     if (result.error) toast.error(result.error);
     else {
-      toast.success("Removed from well");
+      toast.success(t("storage.removedFromWell"));
       router.refresh();
     }
   }
@@ -236,14 +242,15 @@ function BoxGrid({ selected }: { selected: SelectedLocation }) {
     const result = await assignPositionAction(entityId, selected.id, row, col);
     if (result.error) toast.error(result.fieldErrors?.position ?? result.error);
     else {
-      toast.success(`Placed at ${wellLabel(row, col)}`);
+      toast.success(t("storage.placedAt", { well: wellLabel(row, col) }));
       router.refresh();
     }
   }
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto">
+      {/* A box reads A1 top-left in every language — it's the physical layout. */}
+      <div className="overflow-x-auto" dir="ltr">
         <div
           className="grid w-fit gap-1"
           style={{ gridTemplateColumns: `auto repeat(${cols}, minmax(2.5rem, 1fr))` }}
@@ -268,7 +275,7 @@ function BoxGrid({ selected }: { selected: SelectedLocation }) {
 
       {unplaced.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium">Stored here, not yet placed in a well</p>
+          <p className="text-sm font-medium">{t("storage.unplaced")}</p>
           <ul className="space-y-1 text-sm">
             {unplaced.map((item) => (
               <li key={item.id} className="flex items-center gap-2">
@@ -300,9 +307,10 @@ function FragmentRow({
   occupancy: Map<string, { id: string; displayId: string; name: string }>;
   onClear: (entityId: string) => void;
 }) {
+  const t = useT();
   return (
     <>
-      <div className="pr-1 text-right text-xs text-muted-foreground">
+      <div className="pe-1 text-end text-xs text-muted-foreground">
         {String.fromCharCode(65 + row)}
       </div>
       {Array.from({ length: cols }, (_, c) => {
@@ -311,7 +319,11 @@ function FragmentRow({
           <button
             key={`${row}:${c}`}
             type="button"
-            title={item ? `${item.displayId} ${item.name} — click to clear` : "Empty"}
+            title={
+              item
+                ? t("storage.clickToClear", { id: item.displayId, name: item.name })
+                : t("storage.empty")
+            }
             onClick={() => item && onClear(item.id)}
             className={`aspect-square rounded border text-[10px] leading-none ${
               item ? "bg-primary/15 border-primary/40" : "bg-muted/30 hover:bg-muted"
@@ -336,13 +348,15 @@ function PlacePicker({
   occupancy: Map<string, unknown>;
   onPlace: (row: number, col: number) => void;
 }) {
+  const t = useT();
   const free: { row: number; col: number }[] = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       if (!occupancy.has(`${r}:${c}`)) free.push({ row: r, col: c });
     }
   }
-  if (free.length === 0) return <span className="text-xs text-muted-foreground">Box full</span>;
+  if (free.length === 0)
+    return <span className="text-xs text-muted-foreground">{t("storage.boxFull")}</span>;
 
   return (
     <Select
@@ -352,7 +366,7 @@ function PlacePicker({
       }}
     >
       <SelectTrigger size="sm" className="w-28">
-        <SelectValue placeholder="Place…" />
+        <SelectValue placeholder={t("storage.place")} />
       </SelectTrigger>
       <SelectContent>
         {free.slice(0, 100).map((pos) => (
@@ -382,6 +396,7 @@ function AddLocationDialog({
   tree: LocationNode[];
 }) {
   const router = useRouter();
+  const t = useT();
   const [name, setName] = useState("");
   const [kind, setKind] = useState<LocationKind>("box");
   const [parentId, setParentId] = useState<string>(ROOT);
@@ -409,7 +424,7 @@ function AddLocationDialog({
       toast.error(fieldErrors.length > 0 ? fieldErrors.join(" · ") : result.error);
       return;
     }
-    toast.success("Location created");
+    toast.success(t("storage.created"));
     setName("");
     onOpenChange(false);
     router.refresh();
@@ -419,19 +434,19 @@ function AddLocationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add location</DialogTitle>
+          <DialogTitle>{t("storage.dialogTitle")}</DialogTitle>
           <DialogDescription>
-            Boxes — and racks, if you like — get a grid you can place samples into.
+            {t("storage.dialogDesc")}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="loc-name">Name</Label>
+            <Label htmlFor="loc-name">{t("common.name")}</Label>
             <Input id="loc-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="loc-kind">Kind</Label>
+              <Label htmlFor="loc-kind">{t("storage.kind")}</Label>
               <Select value={kind} onValueChange={(v) => setKind(v as LocationKind)}>
                 <SelectTrigger id="loc-kind" className="w-full">
                   <SelectValue />
@@ -439,20 +454,20 @@ function AddLocationDialog({
                 <SelectContent>
                   {KINDS.map((k) => (
                     <SelectItem key={k} value={k}>
-                      {k}
+                      {kindLabel(t, k)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="loc-parent">Parent</Label>
+              <Label htmlFor="loc-parent">{t("storage.parent")}</Label>
               <Select value={parentId} onValueChange={setParentId}>
                 <SelectTrigger id="loc-parent" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ROOT}>None (top level)</SelectItem>
+                  <SelectItem value={ROOT}>{t("storage.topLevel")}</SelectItem>
                   {options.map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.label}
@@ -465,13 +480,13 @@ function AddLocationDialog({
           {kind === "rack" && (
             <label className="flex items-center gap-2 text-sm">
               <Checkbox checked={rackGrid} onCheckedChange={(v) => setRackGrid(v === true)} />
-              Tubes sit directly in this rack (give it a grid)
+              {t("storage.rackGrid")}
             </label>
           )}
           {gridded && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="loc-rows">Rows</Label>
+                <Label htmlFor="loc-rows">{t("storage.rows")}</Label>
                 <Input
                   id="loc-rows"
                   type="number"
@@ -482,7 +497,7 @@ function AddLocationDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="loc-cols">Columns</Label>
+                <Label htmlFor="loc-cols">{t("storage.columns")}</Label>
                 <Input
                   id="loc-cols"
                   type="number"
@@ -496,10 +511,10 @@ function AddLocationDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Creating…" : "Create"}
+              {pending ? t("storage.creating") : t("common.create")}
             </Button>
           </DialogFooter>
         </form>

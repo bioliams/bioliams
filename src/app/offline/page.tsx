@@ -1,15 +1,20 @@
-export const metadata = { title: "Offline · BioLIMS" };
+import { getT } from "@/i18n/server";
 
-export default function OfflinePage() {
+export async function generateMetadata() {
+  const t = await getT();
+  return { title: `${t("auth.offlineTitle")} · BioLIMS` };
+}
+
+export default async function OfflinePage() {
+  const t = await getT();
   return (
     <div className="mx-auto flex max-w-md flex-col items-center justify-center gap-3 px-6 py-24 text-center">
-      <h1 className="text-xl font-semibold">You&rsquo;re offline</h1>
+      <h1 className="text-xl font-semibold">{t("auth.offlineTitle")}</h1>
       <p className="text-sm text-muted-foreground">
-        BioLIMS needs a connection to show lab records. Nothing you did is lost — anything you
-        recorded while connected is saved on the server.
+        {t("auth.offlineBody")}
       </p>
       <p className="text-sm text-muted-foreground">
-        This page will work again as soon as you&rsquo;re back on Wi-Fi.
+        {t("auth.offlineBack")}
       </p>
     </div>
   );

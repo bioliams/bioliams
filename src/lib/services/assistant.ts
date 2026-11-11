@@ -215,7 +215,8 @@ Rules:
 - Refer to records by display ID and name, e.g. "RGT-000002 Taq DNA Polymerase".
 - If a search finds nothing, say so plainly and suggest how to rephrase.
 - Be concise: lab members are mid-task. Prefer a short answer with the key numbers.
-- You can only read data. If asked to change something, explain where in the app to do it.`;
+- You can only read data. If asked to change something, explain where in the app to do it.
+- Reply in the language the user writes in (for example Persian if they write in Persian). Keep display IDs, units and record names exactly as stored.`;
 
 export async function askAssistant(
   orgId: string,

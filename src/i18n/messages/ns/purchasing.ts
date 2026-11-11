@@ -1,0 +1,86 @@
+const en = {
+  title: "Purchasing",
+  description:
+    "What the lab needs to buy, from request to arriving on the shelf. Linking a request to a stock record tops that record up when it’s received.",
+  request: "Request an item",
+  open: "Open",
+  closed: "Closed",
+  nothingOnOrder: "Nothing on order.",
+  statuses: {
+    requested: "requested",
+    approved: "approved",
+    ordered: "ordered",
+    received: "received",
+    rejected: "rejected",
+  },
+  steps: {
+    approve: "Approve",
+    reject: "Reject",
+    markOrdered: "Mark ordered",
+    cancel: "Cancel",
+    received: "Received",
+    reopen: "Reopen",
+  },
+  advanced: "{item} — {status}",
+  stockNow: "Stock now {quantity} {unit}",
+  item: "Item",
+  vendor: "Vendor",
+  requestedBy: "Requested by",
+  next: "Next",
+  topsUp: "tops up {label}",
+  updated: "Request updated",
+  raised: "Request raised",
+  editTitle: "Edit request",
+  dialogDesc:
+    "Link it to a stock record and receiving the order will add the quantity to that record automatically.",
+  catalog: "Catalogue number",
+  cost: "Estimated cost",
+  topsUpOptional: "Tops up (optional)",
+  newItem: "Nothing — new item",
+  raise: "Raise request",
+};
+
+const fa: typeof en = {
+  title: "خرید",
+  description:
+    "آنچه آزمایشگاه باید بخرد، از درخواست تا رسیدن به قفسه. اگر درخواست را به یک رکورد موجودی پیوند دهید، هنگام دریافت، موجودی آن رکورد افزایش می‌یابد.",
+  request: "درخواست کالا",
+  open: "باز",
+  closed: "بسته",
+  nothingOnOrder: "هیچ سفارشی در جریان نیست.",
+  statuses: {
+    requested: "درخواست‌شده",
+    approved: "تأییدشده",
+    ordered: "سفارش‌داده‌شده",
+    received: "دریافت‌شده",
+    rejected: "ردشده",
+  },
+  steps: {
+    approve: "تأیید",
+    reject: "رد",
+    markOrdered: "سفارش داده شد",
+    cancel: "لغو",
+    received: "دریافت شد",
+    reopen: "بازگشایی",
+  },
+  advanced: "{item} — {status}",
+  stockNow: "موجودی فعلی {quantity} {unit}",
+  item: "کالا",
+  vendor: "فروشنده",
+  requestedBy: "درخواست‌دهنده",
+  next: "مرحلهٔ بعد",
+  topsUp: "افزایش موجودی {label}",
+  updated: "درخواست به‌روز شد",
+  raised: "درخواست ثبت شد",
+  editTitle: "ویرایش درخواست",
+  dialogDesc:
+    "آن را به یک رکورد موجودی پیوند دهید تا با دریافت سفارش، مقدار به‌طور خودکار به آن رکورد اضافه شود.",
+  catalog: "شمارهٔ کاتالوگ",
+  cost: "هزینهٔ تخمینی",
+  topsUpOptional: "افزایش موجودی (اختیاری)",
+  newItem: "هیچ — کالای جدید",
+  raise: "ثبت درخواست",
+};
+
+const messages = { en, fa };
+export default messages;

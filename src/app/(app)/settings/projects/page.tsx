@@ -1,3 +1,4 @@
+import { getT } from "@/i18n/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { member, user } from "@/db/schema";
@@ -7,10 +8,14 @@ import { listProjects, listProjectMembers } from "@/lib/services/projects";
 import { ProjectsManager } from "./projects-manager";
 import { PageHeader } from "@/components/page-header";
 
-export const metadata = { title: "Projects · BioLIMS" };
+export async function generateMetadata() {
+  const t = await getT();
+  return { title: `${t("nav.projects")} · BioLIMS` };
+}
 
 export default async function ProjectsPage() {
   const ctx = await requireOrg();
+  const t = await getT();
   const [rows, assignments, people] = await Promise.all([
     listProjects(ctx.orgId),
     listProjectMembers(ctx.orgId),
@@ -24,8 +29,8 @@ export default async function ProjectsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Projects"
-        description="Projects restrict what a collaborator sees. Someone assigned to no project sees the whole lab; assign them to one or more and they see only those, plus records that aren't filed under any project."
+        title={t("settings.projects.title")}
+        description={t("settings.projects.description")}
       />
 
       <ProjectsManager

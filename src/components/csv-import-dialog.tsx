@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { importEntitiesAction } from "@/app/(app)/t/[slug]/actions";
+import { useT } from "@/i18n/client";
 
 interface Props {
   open: boolean;
@@ -32,6 +33,7 @@ function matchField(header: string, fields: FieldDef[]) {
 
 export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props) {
   const router = useRouter();
+  const t = useT();
   const [pending, setPending] = useState(false);
   const [failures, setFailures] = useState<{ row: number; message: string }[]>([]);
 
@@ -45,7 +47,9 @@ export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props)
         await submit(await readXlsx(file));
       } catch (err) {
         toast.error(
-          `Could not read that spreadsheet: ${err instanceof Error ? err.message : "unknown error"}`
+          t("registry.csvImport.unreadableSheet", {
+            error: err instanceof Error ? err.message : t("registry.csvImport.unknownError"),
+          })
         );
         setPending(false);
       }
@@ -57,7 +61,7 @@ export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props)
       skipEmptyLines: true,
       complete: (parsed) => submit(parsed.data),
       error: (err) => {
-        toast.error(`Could not read that file: ${err.message}`);
+        toast.error(t("registry.csvImport.unreadableFile", { error: err.message }));
         setPending(false);
       },
     });
@@ -82,7 +86,7 @@ export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props)
     });
 
     if (rows.length === 0) {
-      toast.error("No rows with a 'name' column found");
+      toast.error(t("registry.csvImport.noNameColumn"));
       setPending(false);
       return;
     }
@@ -90,8 +94,9 @@ export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props)
     const result = await importEntitiesAction(typeSlug, rows);
     setPending(false);
     setFailures(result.failures);
-    if (result.created > 0) toast.success(`Imported ${result.created} record(s)`);
-    if (result.failures.length > 0) toast.error(`${result.failures.length} row(s) failed`);
+    if (result.created > 0) toast.success(t("registry.csvImport.imported", { count: result.created }));
+    if (result.failures.length > 0)
+      toast.error(t("registry.csvImport.failed", { count: result.failures.length }));
     else onOpenChange(false);
     router.refresh();
   }
@@ -102,11 +107,9 @@ export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props)
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import records</DialogTitle>
+          <DialogTitle>{t("registry.csvImport.title")}</DialogTitle>
           <DialogDescription>
-            Excel (.xlsx) or CSV. Headers are matched to fields by label, so a spreadsheet
-            you already keep usually imports as-is. Expected columns: {expected.join(", ")}.
-            Multi-select values use <code>|</code> as a separator.
+            {t("registry.csvImport.description", { columns: expected.join(", ") })}
           </DialogDescription>
         </DialogHeader>
 
@@ -122,11 +125,11 @@ export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props)
 
         {failures.length > 0 && (
           <div className="max-h-48 overflow-y-auto rounded-md border bg-muted/40 p-3 text-xs">
-            <p className="mb-2 font-medium">Rows that failed validation:</p>
+            <p className="mb-2 font-medium">{t("registry.csvImport.failedTitle")}</p>
             <ul className="space-y-1">
               {failures.map((f) => (
                 <li key={f.row}>
-                  Row {f.row}: {f.message}
+                  {t("registry.csvImport.row", { row: f.row, message: f.message })}
                 </li>
               ))}
             </ul>
@@ -135,7 +138,7 @@ export function CsvImportDialog({ open, onOpenChange, typeSlug, fields }: Props)
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            {t("common.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

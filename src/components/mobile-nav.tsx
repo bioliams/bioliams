@@ -13,6 +13,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/client";
+import { dirOf } from "@/i18n/config";
 
 export interface NavSection {
   label?: string;
@@ -26,17 +28,18 @@ export interface NavSection {
 export function MobileNav({ sections }: { sections: NavSection[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const t = useT();
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
+        <Button variant="ghost" size="icon" className="md:hidden" aria-label={t("nav.openMenu")}>
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-64 p-0">
+      <SheetContent side={dirOf(t.locale) === "rtl" ? "right" : "left"} className="w-64 p-0">
         <SheetHeader className="border-b px-4 py-3">
-          <SheetTitle className="flex items-center gap-2 text-left">
+          <SheetTitle className="flex items-center gap-2 text-start">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand-mark.png" alt="" className="size-5" />
             BioLIMS
@@ -62,7 +65,7 @@ export function MobileNav({ sections }: { sections: NavSection[] }) {
                 >
                   {link.color && (
                     <span
-                      className="mr-2 inline-block size-2 rounded-full align-middle"
+                      className="me-2 inline-block size-2 rounded-full align-middle"
                       style={{ backgroundColor: link.color }}
                     />
                   )}

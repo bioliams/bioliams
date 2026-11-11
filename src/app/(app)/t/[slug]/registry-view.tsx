@@ -37,6 +37,8 @@ import { PageHeader } from "@/components/page-header";
 import { saveViewAction, deleteViewAction } from "./view-actions";
 import { exportEntitiesAction } from "./export-action";
 import { PAGE_SIZE } from "@/lib/pagination";
+import { useT } from "@/i18n/client";
+import { kindLabel, statusLabel } from "@/i18n/labels";
 
 function SortHeader({
   label,
@@ -50,12 +52,13 @@ function SortHeader({
   onSort: (key: string) => void;
 }) {
   const active = sort.key === sortKey;
+  const t = useT();
   return (
     <TableHead>
       <button
         onClick={() => onSort(sortKey)}
         className="inline-flex items-center gap-1 hover:text-foreground"
-        aria-label={`Sort by ${label}`}
+        aria-label={t("registry.sortBy", { label })}
       >
         {label}
         <span className={active ? "" : "opacity-0 group-hover:opacity-40"}>
@@ -120,6 +123,7 @@ export function RegistryView({
   canWrite: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
   const [search, setSearch] = useState(filters.q);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -172,7 +176,7 @@ export function RegistryView({
       toast.error(result.error);
       return;
     }
-    toast.success(`Saved “${viewName.trim()}”`);
+    toast.success(t("registry.viewSaved", { name: viewName.trim() }));
     setViewDialogOpen(false);
     setViewName("");
     router.refresh();
@@ -189,7 +193,7 @@ export function RegistryView({
       toast.error(result.error);
       return;
     }
-    toast.success("View deleted");
+    toast.success(t("registry.viewDeleted"));
     router.refresh();
   }
 
@@ -211,7 +215,7 @@ export function RegistryView({
       dir: filters.dir,
     });
     if (result.truncated) {
-      toast.warning(`Exporting the first ${result.rows.length} of ${result.total} records`);
+      toast.warning(t("registry.exportTruncated", { count: result.rows.length, total: result.total }));
     }
     return result.rows as RegistryRow[];
   }
@@ -233,7 +237,7 @@ export function RegistryView({
         ])
       );
       downloadBlob(blob, `${type.slug}-export.xlsx`);
-      toast.success(`Exported ${all.length} record(s) to Excel`);
+      toast.success(t("registry.exportedExcel", { count: all.length }));
     } finally {
       setExporting(false);
     }
@@ -268,7 +272,7 @@ export function RegistryView({
     a.click();
     URL.revokeObjectURL(url);
     setExporting(false);
-    toast.success(`Exported ${all.length} record(s)`);
+    toast.success(t("registry.exported", { count: all.length }));
   }
 
   return (
@@ -286,36 +290,43 @@ export function RegistryView({
         }
         description={
           total === 0
-            ? "No records"
-            : `${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rows.length} of ${total} record${total === 1 ? "" : "s"}`
+            ? t("registry.noRecords")
+            : t("registry.range", {
+                from: (page - 1) * PAGE_SIZE + 1,
+                to: (page - 1) * PAGE_SIZE + rows.length,
+                total,
+                count: total,
+              })
         }
         actions={
           <>
           {canWrite && (
             <Button variant="outline" onClick={() => setImportOpen(true)}>
-              Import
+              {t("registry.import")}
             </Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" disabled={rows.length === 0 || exporting}>
-                {exporting ? "Exporting…" : "Export"}
+                {exporting ? t("registry.exporting") : t("registry.export")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={exportExcel}>Excel (.xlsx)</DropdownMenuItem>
-              <DropdownMenuItem onClick={exportCsv}>CSV</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => window.print()}>Print / PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportExcel}>{t("registry.excel")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportCsv}>{t("registry.csv")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.print()}>{t("registry.print")}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           {canWrite && (
-            <Button onClick={() => setDialogOpen(true)}>Register {type.name}</Button>
+            <Button onClick={() => setDialogOpen(true)}>
+              {t("registry.register", { type: type.name })}
+            </Button>
           )}
           </>
         }
       >
         <Input
-          placeholder="Search by name or ID…"
+          placeholder={t("registry.searchPlaceholder")}
           value={search}
           onChange={(e) => applySearch(e.target.value)}
           className="max-w-xs"
@@ -324,12 +335,12 @@ export function RegistryView({
           value={filters.status}
           onChange={(e) => navigate({ ...query, status: e.target.value })}
           className="h-9 rounded-md border bg-background px-2 text-sm"
-          aria-label="Filter by status"
+          aria-label={t("registry.filterStatus")}
         >
-          <option value="">Any status</option>
+          <option value="">{t("registry.anyStatus")}</option>
           {["active", "in-use", "depleted", "archived"].map((s) => (
             <option key={s} value={s}>
-              {s}
+              {statusLabel(t, s)}
             </option>
           ))}
         </select>
@@ -337,23 +348,25 @@ export function RegistryView({
           value={filters.locationId}
           onChange={(e) => navigate({ ...query, locationId: e.target.value })}
           className="h-9 max-w-[14rem] rounded-md border bg-background px-2 text-sm"
-          aria-label="Filter by location"
+          aria-label={t("registry.filterLocation")}
         >
-          <option value="">Anywhere</option>
+          <option value="">{t("registry.anywhere")}</option>
           {locations.map((l) => (
             <option key={l.id} value={l.id}>
-              {l.name} ({l.kind})
+              {l.name} ({kindLabel(t, l.kind)})
             </option>
           ))}
         </select>
         <Button variant="ghost" size="sm" onClick={() => setViewDialogOpen(true)}>
-          Save as view
+          {t("registry.saveAsView")}
         </Button>
       </PageHeader>
 
       {views.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Views</span>
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t("registry.views")}
+          </span>
           {views.map((view) => (
             <span
               key={view.id}
@@ -364,7 +377,7 @@ export function RegistryView({
               </button>
               <button
                 onClick={() => removeView(view)}
-                aria-label={`Delete view ${view.name}`}
+                aria-label={t("registry.deleteView", { name: view.name })}
                 className="text-muted-foreground hover:text-destructive"
               >
                 ×
@@ -378,10 +391,10 @@ export function RegistryView({
         <Table>
           <TableHeader>
             <TableRow>
-              <SortHeader label="ID" sortKey="displayId" sort={sort} onSort={toggleSort} />
-              <SortHeader label="Name" sortKey="name" sort={sort} onSort={toggleSort} />
-              <SortHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} />
-              <SortHeader label="Location" sortKey="location" sort={sort} onSort={toggleSort} />
+              <SortHeader label={t("common.id")} sortKey="displayId" sort={sort} onSort={toggleSort} />
+              <SortHeader label={t("common.name")} sortKey="name" sort={sort} onSort={toggleSort} />
+              <SortHeader label={t("common.status")} sortKey="status" sort={sort} onSort={toggleSort} />
+              <SortHeader label={t("common.location")} sortKey="location" sort={sort} onSort={toggleSort} />
               {columns.map((f) => (
                 <SortHeader
                   key={f.key}
@@ -408,12 +421,14 @@ export function RegistryView({
                 </TableCell>
                 <TableCell>
                   <Badge variant={row.status === "active" ? "secondary" : "outline"}>
-                    {row.status}
+                    {statusLabel(t, row.status)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{row.locationName ?? "—"}</TableCell>
                 {columns.map((f) => (
-                  <TableCell key={f.key}>{formatFieldValue(f, row.data[f.key])}</TableCell>
+                  <TableCell key={f.key}>
+                    <bdi>{formatFieldValue(f, row.data[f.key], t)}</bdi>
+                  </TableCell>
                 ))}
               </TableRow>
             ))}
@@ -423,7 +438,7 @@ export function RegistryView({
                   colSpan={4 + columns.length}
                   className="py-10 text-center text-muted-foreground"
                 >
-                  No records yet.
+                  {t("registry.empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -434,7 +449,7 @@ export function RegistryView({
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between gap-3 print:hidden">
           <p className="text-sm text-muted-foreground">
-            Page {page} of {Math.ceil(total / PAGE_SIZE)}
+            {t("common.pageOf", { page, pages: Math.ceil(total / PAGE_SIZE) })}
           </p>
           <div className="flex gap-2">
             <Button
@@ -443,7 +458,7 @@ export function RegistryView({
               disabled={page <= 1 || pending}
               onClick={() => navigate({ ...query, page: String(page - 1) })}
             >
-              Previous
+              {t("common.previous")}
             </Button>
             <Button
               variant="outline"
@@ -451,7 +466,7 @@ export function RegistryView({
               disabled={page >= Math.ceil(total / PAGE_SIZE) || pending}
               onClick={() => navigate({ ...query, page: String(page + 1) })}
             >
-              Next
+              {t("common.next")}
             </Button>
           </div>
         </div>
@@ -460,9 +475,9 @@ export function RegistryView({
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Save this view</DialogTitle>
+            <DialogTitle>{t("registry.saveViewTitle")}</DialogTitle>
             <DialogDescription>
-              The current search, filters and sort, saved for the whole lab.
+              {t("registry.saveViewDesc")}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -476,8 +491,8 @@ export function RegistryView({
               autoFocus
               value={viewName}
               onChange={(e) => setViewName(e.target.value)}
-              placeholder="e.g. Blood samples in the -80"
-              aria-label="View name"
+              placeholder={t("registry.viewPlaceholder")}
+              aria-label={t("registry.viewName")}
             />
             <DialogFooter>
               <Button
@@ -485,10 +500,10 @@ export function RegistryView({
                 variant="outline"
                 onClick={() => setViewDialogOpen(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={!viewName.trim()}>
-                Save view
+                {t("registry.saveView")}
               </Button>
             </DialogFooter>
           </form>

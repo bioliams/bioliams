@@ -1,3 +1,4 @@
+import { getT } from "@/i18n/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { aiSettings } from "@/db/schema";
@@ -6,10 +7,14 @@ import { can } from "@/lib/permissions";
 import { PageHeader } from "@/components/page-header";
 import { AiSettingsForm } from "./ai-settings-form";
 
-export const metadata = { title: "AI assistant · BioLIMS" };
+export async function generateMetadata() {
+  const t = await getT();
+  return { title: `${t("nav.aiAssistant")} · BioLIMS` };
+}
 
 export default async function AiSettingsPage() {
   const ctx = await requireOrg();
+  const t = await getT();
   const [row] = await db
     .select()
     .from(aiSettings)
@@ -19,8 +24,8 @@ export default async function AiSettingsPage() {
   return (
     <div className="max-w-2xl space-y-4">
       <PageHeader
-        title="AI assistant"
-        description="Bring your own model. Any OpenAI-compatible endpoint works: Google Gemini (free tier), Groq, OpenAI, or a self-hosted Ollama — your key never leaves this lab's row."
+        title={t("settings.ai.title")}
+        description={t("settings.ai.description")}
       />
       <AiSettingsForm
         canEdit={can(ctx.role, "keys:manage")}

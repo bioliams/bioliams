@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireOrg } from "@/lib/tenant";
 import { listEntities } from "@/lib/services/entities";
 import { PageHeader } from "@/components/page-header";
+import { getT } from "@/i18n/server";
+import { statusLabel } from "@/i18n/labels";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -12,7 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export const metadata = { title: "Search · BioLIMS" };
+export async function generateMetadata() {
+  const t = await getT();
+  return { title: `${t("misc.search.title")} · BioLIMS` };
+}
 
 /** One box over every registry — the "where is that thing?" page. */
 export default async function SearchPage({
@@ -22,6 +27,7 @@ export default async function SearchPage({
 }) {
   const { q } = await searchParams;
   const ctx = await requireOrg();
+  const t = await getT();
   const query = (q ?? "").trim();
   const { rows } = query
     ? await listEntities(ctx.orgId, { search: query, limit: 200, projectIds: ctx.projectIds })
@@ -30,11 +36,11 @@ export default async function SearchPage({
   return (
     <div className="space-y-4">
       <PageHeader
-        title={query ? `Results for “${query}”` : "Search"}
+        title={query ? t("misc.search.resultsFor", { query }) : t("misc.search.title")}
         description={
           query
-            ? `${rows.length} record${rows.length === 1 ? "" : "s"} across every registry — names, IDs and field values.`
-            : "Search every registry at once from the box in the header."
+            ? t("misc.search.found", { count: rows.length })
+            : t("misc.search.hint")
         }
       />
 
@@ -43,11 +49,11 @@ export default async function SearchPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead>{t("common.id")}</TableHead>
+                <TableHead>{t("common.name")}</TableHead>
+                <TableHead>{t("common.type")}</TableHead>
+                <TableHead>{t("common.status")}</TableHead>
+                <TableHead>{t("common.location")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -72,7 +78,7 @@ export default async function SearchPage({
                   <TableCell className="text-muted-foreground">{typeName}</TableCell>
                   <TableCell>
                     <Badge variant={entity.status === "active" ? "secondary" : "outline"}>
-                      {entity.status}
+                      {statusLabel(t, entity.status)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
@@ -83,7 +89,7 @@ export default async function SearchPage({
               {rows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                    Nothing matches “{query}”.
+                    {t("misc.search.nothing", { query })}
                   </TableCell>
                 </TableRow>
               )}

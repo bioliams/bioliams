@@ -11,6 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { consumeInventoryAction } from "../actions";
 import { PageHeader } from "@/components/page-header";
+import { useT } from "@/i18n/client";
+import { formatRelative } from "@/i18n/format";
 
 export interface UsableItem {
   entityId: string;
@@ -45,17 +47,8 @@ function tidy(value: string) {
   return Number.isFinite(n) ? String(n) : value;
 }
 
-function relativeTime(iso: string) {
-  const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
-
 export function UseStockView({ items, usage }: { items: UsableItem[]; usage: UsageEntry[] }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   // entityId → amount to take. One protocol usually draws on several reagents,
   // so selection is a basket rather than a single highlighted card.
@@ -100,10 +93,12 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
       }
       const used = result.value ?? [];
       const summary = used
-        .map((u) => `${u.name}: ${tidy(u.quantity)} ${u.unit} left`)
+        .map((u) => t("inventory.use.leftSummary", { name: u.name, quantity: tidy(u.quantity), unit: u.unit }))
         .join(" · ");
       toast.success(
-        used.length === 1 ? `Used ${used[0].name}` : `Recorded ${used.length} items`,
+        used.length === 1
+          ? t("inventory.use.usedOne", { name: used[0].name })
+          : t("inventory.use.usedMany", { count: used.length }),
         { description: summary }
       );
       setBasket({});
@@ -113,11 +108,11 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Use stock"
-        description="Search for what you took off the shelf, tick everything the experiment used, and record it in one go."
+        title={t("inventory.use.title")}
+        description={t("inventory.use.description")}
         actions={
           <Button variant="outline" asChild>
-            <Link href="/inventory">All inventory</Link>
+            <Link href="/inventory">{t("inventory.use.all")}</Link>
           </Button>
         }
       >
@@ -134,7 +129,7 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
           if (!(matches[0].entityId in basket)) toggle(matches[0]);
           setQuery("");
         }}
-        placeholder="Search or scan — name, ID, freezer, type or lot…"
+        placeholder={t("inventory.use.placeholder")}
         className="max-w-md"
       />
       </PageHeader>
@@ -142,8 +137,8 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
       {matches.length === 0 && (
         <p className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
           {items.length === 0
-            ? "No inventory-tracked records yet. Mark a record type as “tracks inventory” in Settings → Record types."
-            : `Nothing matches “${query}”.`}
+            ? t("inventory.empty")
+            : t("inventory.use.nothingMatches", { query })}
         </p>
       )}
 
@@ -176,22 +171,22 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
                       </Link>
                       {" · "}
                       {item.typeName}
-                      {item.lot ? ` · lot ${item.lot}` : ""}
+                      {item.lot ? t("inventory.use.lotPart", { lot: item.lot }) : ""}
                     </p>
                     <p className="truncate text-xs font-medium text-primary">
-                      {item.locationName ?? "No location"}
+                      {item.locationName ?? t("common.noLocation")}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {empty ? (
-                      <Badge variant="destructive">Out</Badge>
+                      <Badge variant="destructive">{t("inventory.use.out")}</Badge>
                     ) : low ? (
-                      <Badge variant="destructive">Low</Badge>
+                      <Badge variant="destructive">{t("inventory.use.low")}</Badge>
                     ) : null}
                     <Checkbox
                       checked={selected}
                       disabled={empty}
-                      aria-label={`Select ${item.name}`}
+                      aria-label={t("inventory.use.select", { name: item.name })}
                       onClick={(e) => e.stopPropagation()}
                       onCheckedChange={() => toggle(item)}
                     />
@@ -202,11 +197,13 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
                   <span className="text-2xl font-semibold tabular-nums">
                     {tidy(item.quantity)}
                   </span>
-                  <span className="text-sm text-muted-foreground">{item.unit} available</span>
+                  <span className="text-sm text-muted-foreground">
+                    {t("inventory.use.available", { unit: item.unit })}
+                  </span>
                 </div>
                 {item.minThreshold !== null && (
                   <p className="text-xs text-muted-foreground">
-                    Minimum {tidy(item.minThreshold)} {item.unit}
+                    {t("inventory.use.minimum", { min: tidy(item.minThreshold), unit: item.unit })}
                   </p>
                 )}
 
@@ -226,9 +223,9 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
                         if (e.key === "Enter" && !pending) record();
                       }}
                       className="h-9 w-24"
-                      aria-label={`Amount of ${item.name} to use`}
+                      aria-label={t("inventory.use.amountOf", { name: item.name })}
                     />
-                    <span className="text-sm text-muted-foreground">to use</span>
+                    <span className="text-sm text-muted-foreground">{t("inventory.use.toUse")}</span>
                   </div>
                 )}
               </CardContent>
@@ -240,21 +237,24 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
       {selectedIds.length > 0 && (
         <div className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-md border bg-background/95 p-3 shadow-lg backdrop-blur">
           <span className="text-sm">
-            <strong>{selectedIds.length}</strong>{" "}
-            {selectedIds.length === 1 ? "item" : "items"} selected
+            {t("inventory.use.selected", { count: selectedIds.length })}
           </span>
           <Button variant="ghost" size="sm" disabled={pending} onClick={() => setBasket({})}>
-            Clear
+            {t("inventory.use.clear")}
           </Button>
-          <Button className="ml-auto" disabled={pending} onClick={record}>
-            {pending ? "Recording…" : `Use ${selectedIds.length === 1 ? "item" : "all"}`}
+          <Button className="ms-auto" disabled={pending} onClick={record}>
+            {pending
+              ? t("inventory.use.recording")
+              : selectedIds.length === 1
+                ? t("inventory.use.useOne")
+                : t("inventory.use.useAll")}
           </Button>
         </div>
       )}
 
       {usage.length > 0 && (
         <div className="space-y-2 pt-2">
-          <h2 className="text-sm font-medium text-muted-foreground">Recent usage</h2>
+          <h2 className="text-sm font-medium text-muted-foreground">{t("inventory.use.recent")}</h2>
           <ul className="divide-y rounded-md border bg-card text-sm shadow-sm">
             {usage.map((e) => (
               <li key={e.id} className="flex flex-wrap items-center gap-x-2 px-3 py-2">
@@ -262,14 +262,14 @@ export function UseStockView({ items, usage }: { items: UsableItem[]; usage: Usa
                   {tidy(e.delta)} {e.unit}
                 </span>
                 <span className="text-muted-foreground">
-                  {e.kind === "consume" ? "used of" : "adjusted on"}
+                  {e.kind === "consume" ? t("inventory.use.usedOf") : t("inventory.use.adjustedOn")}
                 </span>
                 <span className="truncate">{e.entityName}</span>
                 <span className="font-mono text-xs text-muted-foreground">{e.displayId}</span>
                 {e.note && <span className="truncate text-xs text-muted-foreground">· {e.note}</span>}
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {tidy(e.quantityAfter)} {e.unit} left · {e.actorName ?? "Someone"} ·{" "}
-                  {relativeTime(e.createdAt)}
+                <span className="ms-auto text-xs text-muted-foreground">
+                  {t("inventory.use.left", { quantity: tidy(e.quantityAfter), unit: e.unit })} ·{" "}
+                  {e.actorName ?? t("common.someone")} · {formatRelative(e.createdAt, t.locale)}
                 </span>
               </li>
             ))}

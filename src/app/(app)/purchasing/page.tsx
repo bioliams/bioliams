@@ -1,10 +1,14 @@
+import { getT } from "@/i18n/server";
 import { requireOrg } from "@/lib/tenant";
 import { listPurchases } from "@/lib/services/purchasing";
 import { listInventory } from "@/lib/services/inventory";
 import { can } from "@/lib/permissions";
 import { PurchasingView } from "./purchasing-view";
 
-export const metadata = { title: "Purchasing · BioLIMS" };
+export async function generateMetadata() {
+  const t = await getT();
+  return { title: `${t("nav.purchasing")} · BioLIMS` };
+}
 
 export default async function PurchasingPage() {
   const ctx = await requireOrg();

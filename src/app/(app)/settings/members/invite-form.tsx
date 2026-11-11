@@ -13,9 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useT } from "@/i18n/client";
 
 export function InviteForm() {
   const router = useRouter();
+  const t = useT();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [pending, setPending] = useState(false);
@@ -29,10 +31,10 @@ export function InviteForm() {
     });
     setPending(false);
     if (error) {
-      toast.error(error.message ?? "Could not send invitation");
+      toast.error(error.message ?? t("settings.members.inviteFailed"));
       return;
     }
-    toast.success(`Invited ${email}`);
+    toast.success(t("settings.members.invited", { email }));
     setEmail("");
     router.refresh();
   }
@@ -43,7 +45,8 @@ export function InviteForm() {
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="colleague@lab.org"
+        placeholder={t("settings.members.emailPlaceholder")}
+        dir="ltr"
         className="flex-1"
         required
       />
@@ -52,12 +55,12 @@ export function InviteForm() {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="member">Member</SelectItem>
-          <SelectItem value="admin">Admin</SelectItem>
+          <SelectItem value="member">{t("roles.member")}</SelectItem>
+          <SelectItem value="admin">{t("roles.admin")}</SelectItem>
         </SelectContent>
       </Select>
       <Button type="submit" disabled={pending}>
-        {pending ? "Inviting…" : "Invite"}
+        {pending ? t("settings.members.inviting") : t("settings.members.invite")}
       </Button>
     </form>
   );

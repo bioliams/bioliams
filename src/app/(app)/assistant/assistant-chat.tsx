@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { askAssistantAction } from "./actions";
+import { useT } from "@/i18n/client";
 
 interface Message {
   role: "user" | "assistant";
@@ -13,12 +14,7 @@ interface Message {
   error?: boolean;
 }
 
-const SUGGESTIONS = [
-  "What's running low?",
-  "Where are the PT-014 aliquots?",
-  "What was used this week?",
-  "Do we have any Proteinase K left?",
-];
+const SUGGESTIONS = ["low", "where", "week", "proteinase"] as const;
 
 export function AssistantChat({
   configured,
@@ -27,6 +23,7 @@ export function AssistantChat({
   configured: boolean;
   usingSharedKey: boolean;
 }) {
+  const t = useT();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [pending, startTransition] = useTransition();
@@ -60,8 +57,7 @@ export function AssistantChat({
       <Card>
         <CardContent className="py-12 text-center text-sm text-muted-foreground">
           <Sparkles className="mx-auto mb-3 size-8 opacity-30" />
-          No AI provider is configured for this lab yet. An admin can add a key — Gemini,
-          Groq, OpenAI or a self-hosted Ollama all work — under Settings → AI assistant.
+          {t("assistant.notConfigured")}
         </CardContent>
       </Card>
     );
@@ -74,10 +70,10 @@ export function AssistantChat({
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
             <Sparkles className="size-8 text-primary/40" />
             <p className="text-sm text-muted-foreground">
-              Ask anything about the lab&rsquo;s records and stock.
+              {t("assistant.empty")}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
+              {SUGGESTIONS.map((key) => t(`assistant.suggestions.${key}`)).map((s) => (
                 <button
                   key={s}
                   onClick={() => ask(s)}
@@ -104,7 +100,7 @@ export function AssistantChat({
                     : "bg-muted"
               )}
             >
-              {m.content}
+              <span dir="auto">{m.content}</span>
             </div>
           </div>
         ))}
@@ -112,7 +108,7 @@ export function AssistantChat({
           <div className="flex justify-start">
             <div className="flex items-center gap-2 rounded-lg bg-muted px-3.5 py-2.5 text-sm text-muted-foreground">
               <span className="size-1.5 animate-pulse rounded-full bg-current" />
-              Checking the records…
+              {t("assistant.checking")}
             </div>
           </div>
         )}
@@ -129,17 +125,17 @@ export function AssistantChat({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={pending}
-          placeholder="e.g. how much Taq do we have, and where is it?"
+          placeholder={t("assistant.placeholder")}
           className="h-10 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-          aria-label="Ask the lab assistant"
+          aria-label={t("assistant.label")}
         />
         <Button type="submit" disabled={pending || !input.trim()}>
-          Ask
+          {t("assistant.ask")}
         </Button>
       </form>
       {usingSharedKey && (
         <p className="border-t px-3 py-1.5 text-center text-[11px] text-muted-foreground">
-          Using the shared demo model — add your lab&rsquo;s own key in Settings → AI assistant.
+          {t("assistant.sharedKey")}
         </p>
       )}
     </Card>

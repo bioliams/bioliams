@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { member } from "@/db/schema";
 import { getSession } from "@/lib/tenant";
 import { OnboardingForm } from "./onboarding-form";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export default async function OnboardingPage() {
   const session = await getSession();
@@ -17,8 +18,9 @@ export default async function OnboardingPage() {
   if (memberships.length > 0) redirect("/");
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
       <OnboardingForm />
+      <LanguageSwitcher />
     </div>
   );
 }

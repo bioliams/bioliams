@@ -12,6 +12,8 @@ import {
   type UpdateEntityInput,
 } from "@/lib/services/entities";
 import { type ActionResult, actionError } from "@/lib/action-result";
+import { getT } from "@/i18n/server";
+import { translateServerMessage } from "@/i18n/server-errors";
 
 /** `value` carries the record's display ID on success. */
 export async function createEntityAction(
@@ -69,8 +71,9 @@ export async function importEntitiesAction(
   rows: { name: string; data: Record<string, unknown> }[]
 ): Promise<{ created: number; failures: { row: number; message: string }[] }> {
   const ctx = await requireOrg();
+  const t = await getT();
   if (!can(ctx.role, "records:write")) {
-    return { created: 0, failures: [{ row: 0, message: "Your role can't import records" }] };
+    return { created: 0, failures: [{ row: 0, message: t("errors.forbidden") }] };
   }
   const failures: { row: number; message: string }[] = [];
   let created = 0;
@@ -83,11 +86,11 @@ export async function importEntitiesAction(
       const detail =
         err instanceof ServiceError && err.fieldErrors
           ? Object.entries(err.fieldErrors)
-              .map(([k, v]) => `${k}: ${v}`)
+              .map(([k, v]) => `${k}: ${translateServerMessage(v, t)}`)
               .join("; ")
           : err instanceof Error
-            ? err.message
-            : "Unknown error";
+            ? translateServerMessage(err.message, t)
+            : t("errors.generic");
       failures.push({ row: i + 2, message: detail }); // +2 = header row + 1-indexed
     }
   }

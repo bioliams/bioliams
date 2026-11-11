@@ -5,54 +5,18 @@
  * every action that records a diff gets a summary here.
  */
 
+import { createT, type T } from "@/i18n/translate";
+import { en } from "@/i18n/messages/en";
+
+const englishT = createT("en", en);
+
 type Diff = Record<string, unknown> | null | undefined;
 
 /** What happened, in words — "entity.split" belongs in a log file, not a UI. */
-const ACTION_LABELS: Record<string, string> = {
-  "entity.create": "Registered",
-  "entity.update": "Edited",
-  "entity.move": "Moved",
-  "entity.delete": "Archived",
-  "entity.split": "Split into aliquots",
-  "entity.transfer": "Moved",
-  "entity.checkout": "Checked out",
-  "entity.checkin": "Checked in",
-  "entity.project": "Filed under a project",
-  "inventory.update": "Stock corrected",
-  "inventory.consume": "Stock used",
-  "inventory.discard": "Stock discarded",
-  "inventory.return": "Stock returned",
-  "entity_type.create": "Record type created",
-  "entity_type.update": "Record type changed",
-  "entity_type.delete": "Record type deleted",
-  "location.create": "Location added",
-  "location.update": "Location changed",
-  "location.delete": "Location removed",
-  "member.role": "Role changed",
-  "project.create": "Project created",
-  "project.delete": "Project deleted",
-  "project.assign": "Added to project",
-  "project.unassign": "Removed from project",
-  "purchase.request": "Purchase requested",
-  "purchase.update": "Purchase edited",
-  "purchase.approved": "Purchase approved",
-  "purchase.ordered": "Purchase ordered",
-  "purchase.received": "Purchase received",
-  "purchase.rejected": "Purchase rejected",
-  "biobank.request": "Biobank request made",
-  "biobank.processing": "Biobank started a request",
-  "biobank.ready": "Ready for pickup",
-  "biobank.collected": "Collected from the biobank",
-  "biobank.declined": "Biobank declined a request",
-  "biobank.cancelled": "Biobank request cancelled",
-  "api_key.create": "API key created",
-  "api_key.revoke": "API key revoked",
-  "attachment.upload": "File attached",
-  "attachment.delete": "File removed",
-};
-
-export function actionLabel(action: string): string {
-  return ACTION_LABELS[action] ?? action;
+export function actionLabel(action: string, t: T = englishT): string {
+  return action in en.audit.actions
+    ? t(`audit.actions.${action as keyof typeof en.audit.actions}`)
+    : action;
 }
 
 const MAX_FIELDS = 4;
@@ -61,9 +25,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function show(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "empty";
-  if (Array.isArray(value)) return value.length === 0 ? "empty" : value.join(", ");
+function show(value: unknown, t: T = englishT): string {
+  if (value === null || value === undefined || value === "") return t("audit.empty");
+  if (Array.isArray(value)) return value.length === 0 ? t("audit.empty") : value.join(", ");
   if (isRecord(value)) return JSON.stringify(value);
   return String(value);
 }
@@ -82,7 +46,7 @@ function flatten(value: unknown): Record<string, unknown> {
   return out;
 }
 
-function changedFields(diff: Diff): string[] {
+function changedFields(diff: Diff, t: T): string[] {
   const before = flatten(diff?.before);
   const after = flatten(diff?.after);
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
@@ -91,65 +55,63 @@ function changedFields(diff: Diff): string[] {
     const a = before[key];
     const b = after[key];
     if (JSON.stringify(a) === JSON.stringify(b)) continue;
-    changes.push(`${key}: ${show(a)} → ${show(b)}`);
+    changes.push(`${key}: ${show(a, t)} ${t("audit.arrow")} ${show(b, t)}`);
   }
   return changes;
 }
 
-function truncate(changes: string[]): string {
+function truncate(changes: string[], t: T): string {
   if (changes.length === 0) return "";
   const shown = changes.slice(0, MAX_FIELDS).join(" · ");
   const rest = changes.length - MAX_FIELDS;
-  return rest > 0 ? `${shown} · +${rest} more` : shown;
+  return rest > 0 ? `${shown} · ${t("audit.more", { count: rest })}` : shown;
 }
 
-export function summariseAudit(action: string, diff: Diff): string {
+export function summariseAudit(action: string, diff: Diff, t: T = englishT): string {
   if (!diff) return "";
+  const v = (value: unknown) => show(value, t);
 
   switch (action) {
     case "inventory.consume": {
-      const used = show(diff.used);
-      const remaining = show(diff.remaining);
-      const base = `Used ${used} · ${remaining} left`;
-      return diff.note ? `${base} · ${show(diff.note)}` : base;
+      const base = t("audit.used", { used: v(diff.used), remaining: v(diff.remaining) });
+      return diff.note ? `${base} · ${v(diff.note)}` : base;
     }
     case "inventory.discard":
     case "inventory.return": {
-      const parts = [`${show(diff.amount)}`, `${show(diff.remaining)} left`];
-      if (diff.reason) parts.push(`reason: ${show(diff.reason)}`);
+      const parts = [v(diff.amount), t("audit.left", { amount: v(diff.remaining) })];
+      if (diff.reason) parts.push(t("audit.reason", { reason: v(diff.reason) }));
       return parts.join(" · ");
     }
     case "entity.transfer": {
-      return diff.note ? `${show(diff.moved)} · ${show(diff.note)}` : `${show(diff.moved)}`;
+      return diff.note ? `${v(diff.moved)} · ${v(diff.note)}` : v(diff.moved);
     }
     case "entity.checkout":
-      return diff.note ? `Taken out — ${show(diff.note)}` : "Taken out";
+      return diff.note ? t("audit.takenOutNote", { note: v(diff.note) }) : t("audit.takenOut");
     case "entity.checkin":
-      return "Brought back";
+      return t("audit.broughtBack");
     case "inventory.update": {
       const before = isRecord(diff.before) ? diff.before : {};
       const after = isRecord(diff.after) ? diff.after : {};
-      if (before.quantity === after.quantity) return "";
-      return `Quantity ${show(before.quantity)} ${show(before.unit)} → ${show(after.quantity)} ${show(after.unit)}`;
+      if (before.quantity === after.quantity) return truncate(changedFields(diff, t), t);
+      return t("audit.quantityChange", {
+        from: `${v(before.quantity)} ${v(before.unit)}`,
+        to: `${v(after.quantity)} ${v(after.unit)}`,
+      });
     }
     case "entity.split": {
-      const parts = [`Split into ${show(diff.aliquots)} aliquots of ${show(diff.each)}`];
-      if (diff.remaining !== undefined) parts.push(`${show(diff.remaining)} left`);
+      const parts = [t("audit.split", { count: v(diff.aliquots), each: v(diff.each) })];
+      if (diff.remaining !== undefined) parts.push(t("audit.left", { amount: v(diff.remaining) }));
       return parts.join(" · ");
     }
     case "entity.create":
     case "biobank.request": {
       const after = flatten(diff.after);
       const fields = Object.entries(after)
-        .filter(([, v]) => v !== null && v !== undefined && v !== "")
-        .map(([k, v]) => `${k}: ${show(v)}`);
-      return truncate(fields);
+        .filter(([, value]) => value !== null && value !== undefined && value !== "")
+        .map(([k, value]) => `${k}: ${v(value)}`);
+      return truncate(fields, t);
     }
-    case "entity.move":
-    case "entity.update":
-    case "entity_type.update":
-      return truncate(changedFields(diff));
     default:
-      return truncate(changedFields(diff));
+      return truncate(changedFields(diff, t), t);
   }
 }

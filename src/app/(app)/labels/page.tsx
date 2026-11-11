@@ -7,6 +7,7 @@ import { qrSvg } from "@/lib/barcode";
 import { Button } from "@/components/ui/button";
 import { PrintButton } from "./print-button";
 import { PageHeader } from "@/components/page-header";
+import { getT } from "@/i18n/server";
 
 /**
  * A printable sheet of labels. Takes display IDs in the query string so any
@@ -19,6 +20,7 @@ export default async function LabelsPage({
 }) {
   const { ids } = await searchParams;
   const ctx = await requireOrg();
+  const t = await getT();
   const wanted = (ids ?? "")
     .split(",")
     .map((s) => s.trim().toUpperCase())
@@ -53,12 +55,12 @@ export default async function LabelsPage({
     <div className="space-y-5">
       <PageHeader
         className="print:hidden"
-        title="Labels"
-        description={`${labels.length} label${labels.length === 1 ? "" : "s"}. Scanning one opens that record — a phone camera is enough, there is nothing to install.`}
+        title={t("misc.labels.title")}
+        description={t("misc.labels.description", { count: labels.length })}
         actions={
           <>
             <Button variant="outline" asChild>
-              <Link href="/">Done</Link>
+              <Link href="/">{t("misc.labels.done")}</Link>
             </Button>
             <PrintButton />
           </>
@@ -67,7 +69,7 @@ export default async function LabelsPage({
 
       {labels.length === 0 ? (
         <p className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-          Nothing to print. Open a record and choose “Print label”.
+          {t("misc.labels.nothing")}
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-4 print:gap-2">

@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { initials } from "@/lib/initials";
+import { useT } from "@/i18n/client";
+import { LanguageMenuItems } from "@/components/language-menu";
+import { ROLES, type Role } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -55,6 +58,7 @@ export function UserMenu({
   image?: string | null;
 }) {
   const router = useRouter();
+  const t = useT();
   const fileInput = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState(false);
 
@@ -69,11 +73,11 @@ export function UserMenu({
     try {
       const dataUrl = await toAvatarDataUrl(file);
       const { error } = await authClient.updateUser({ image: dataUrl });
-      if (error) throw new Error(error.message ?? "Upload failed");
-      toast.success("Profile picture updated");
+      if (error) throw new Error(error.message ?? t("nav.userMenu.uploadFailed"));
+      toast.success(t("nav.userMenu.photoUpdated"));
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not read that image");
+      toast.error(err instanceof Error ? err.message : t("nav.userMenu.unreadable"));
     } finally {
       setPending(false);
     }
@@ -82,10 +86,10 @@ export function UserMenu({
   async function removePhoto() {
     const { error } = await authClient.updateUser({ image: null });
     if (error) {
-      toast.error(error.message ?? "Could not remove the picture");
+      toast.error(error.message ?? t("nav.userMenu.removeFailed"));
       return;
     }
-    toast.success("Profile picture removed");
+    toast.success(t("nav.userMenu.photoRemoved"));
     router.refresh();
   }
 
@@ -116,17 +120,25 @@ export function UserMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel className="font-normal text-muted-foreground">
-            Role: {role}
+            {t("nav.userMenu.role", {
+              role: (ROLES as readonly string[]).includes(role) ? t(`roles.${role as Role}`) : role,
+            })}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={pending} onClick={() => fileInput.current?.click()}>
-            {pending ? "Uploading…" : image ? "Change profile picture" : "Add a profile picture"}
+            {pending
+              ? t("nav.userMenu.uploading")
+              : image
+                ? t("nav.userMenu.changePhoto")
+                : t("nav.userMenu.addPhoto")}
           </DropdownMenuItem>
           {image && (
-            <DropdownMenuItem onClick={removePhoto}>Remove picture</DropdownMenuItem>
+            <DropdownMenuItem onClick={removePhoto}>{t("nav.userMenu.removePhoto")}</DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleSignOut}>Sign out</DropdownMenuItem>
+          <LanguageMenuItems />
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleSignOut}>{t("nav.userMenu.signOut")}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </>

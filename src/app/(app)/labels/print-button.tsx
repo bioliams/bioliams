@@ -1,7 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/client";
 
 export function PrintButton() {
-  return <Button onClick={() => window.print()}>Print</Button>;
+  const t = useT();
+  return <Button onClick={() => window.print()}>{t("misc.labels.print")}</Button>;
 }

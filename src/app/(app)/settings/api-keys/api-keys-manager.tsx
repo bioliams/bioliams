@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/i18n/client";
+import { formatDate, formatDateTime } from "@/i18n/format";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -27,6 +29,7 @@ export interface ApiKeyRow {
 
 export function ApiKeysManager({ keys }: { keys: ApiKeyRow[] }) {
   const router = useRouter();
+  const t = useT();
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -51,17 +54,18 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyRow[] }) {
       toast.error(result.error);
       return;
     }
-    toast.success("Key revoked");
+    toast.success(t("settings.apiKeys.revoked"));
     router.refresh();
   }
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="API keys"
+        title={t("settings.apiKeys.title")}
         description={
           <>
-            Use these with the REST API at <code>/api/v1</code>. Keys are scoped to this lab.
+            {t("settings.apiKeys.descBefore")} <code>/api/v1</code>
+            {t("settings.apiKeys.descAfter")}
           </>
         }
       />
@@ -69,15 +73,15 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyRow[] }) {
       {newKey && (
         <Card className="border-primary/50">
           <CardHeader>
-            <CardTitle className="text-base">Copy your new key now</CardTitle>
+            <CardTitle className="text-base">{t("settings.apiKeys.copyNow")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <code className="block overflow-x-auto rounded bg-muted p-3 text-sm">{newKey}</code>
             <p className="text-xs text-muted-foreground">
-              This is the only time it will be shown — it&apos;s stored hashed.
+              {t("settings.apiKeys.onlyOnce")}
             </p>
             <Button size="sm" variant="outline" onClick={() => setNewKey(null)}>
-              Done
+              {t("settings.apiKeys.done")}
             </Button>
           </CardContent>
         </Card>
@@ -87,11 +91,11 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyRow[] }) {
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Key name (e.g. Jupyter notebook)"
+          placeholder={t("settings.apiKeys.namePlaceholder")}
           required
         />
         <Button type="submit" disabled={pending}>
-          {pending ? "Creating…" : "Create key"}
+          {pending ? t("settings.apiKeys.creating") : t("settings.apiKeys.create")}
         </Button>
       </form>
 
@@ -99,10 +103,10 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyRow[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Key</TableHead>
-              <TableHead>Last used</TableHead>
-              <TableHead>Created</TableHead>
+              <TableHead>{t("common.name")}</TableHead>
+              <TableHead>{t("settings.apiKeys.key")}</TableHead>
+              <TableHead>{t("settings.apiKeys.lastUsed")}</TableHead>
+              <TableHead>{t("common.created")}</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -112,14 +116,14 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyRow[] }) {
                 <TableCell>{k.name}</TableCell>
                 <TableCell className="font-mono text-xs">{k.keyPrefix}…</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "Never"}
+                  {k.lastUsedAt ? formatDateTime(k.lastUsedAt, t.locale) : t("settings.apiKeys.never")}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(k.createdAt).toLocaleDateString()}
+                  {formatDate(k.createdAt, t.locale)}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-end">
                   <Button variant="ghost" size="sm" onClick={() => handleRevoke(k.id)}>
-                    Revoke
+                    {t("settings.apiKeys.revoke")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -127,7 +131,7 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyRow[] }) {
             {keys.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                  No API keys yet.
+                  {t("settings.apiKeys.none")}
                 </TableCell>
               </TableRow>
             )}

@@ -15,9 +15,11 @@ import {
 import { StockStatus } from "@/components/stock-status";
 import { StockCell } from "./stock-cell";
 import { PageHeader } from "@/components/page-header";
+import { getT } from "@/i18n/server";
 
 export default async function InventoryPage() {
   const ctx = await requireOrg();
+  const t = await getT();
   const rows = await listInventory(ctx.orgId);
   const readOnly = !can(ctx.role, "records:write");
   const undated = rows.filter((r) => !r.item.expiresAt).length;
@@ -25,19 +27,18 @@ export default async function InventoryPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Inventory"
-        description="Stock levels, expiry dates and the points at which items count as low or out of stock. Edit any of them inline; alarms go to the notification center."
+        title={t("inventory.title")}
+        description={t("inventory.description")}
         actions={
           <Button asChild>
-            <Link href="/inventory/use">Use stock</Link>
+            <Link href="/inventory/use">{t("inventory.useStock")}</Link>
           </Button>
         }
       />
 
       {undated > 0 && !readOnly && (
         <p className="text-sm text-muted-foreground">
-          {undated} item{undated === 1 ? " has" : "s have"} no expiry date yet — fill it in below
-          so you hear before {undated === 1 ? "it goes" : "they go"} off.
+          {t("inventory.undated", { count: undated })}
         </p>
       )}
 
@@ -45,16 +46,14 @@ export default async function InventoryPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead title="Warn when stock falls to this level">Low at</TableHead>
-              <TableHead title="Counts as out of stock at or below this level">
-                Zero point
-              </TableHead>
-              <TableHead>Expires</TableHead>
-              <TableHead>Lot</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>{t("common.id")}</TableHead>
+              <TableHead>{t("common.name")}</TableHead>
+              <TableHead>{t("common.quantity")}</TableHead>
+              <TableHead title={t("inventory.lowAtTitle")}>{t("inventory.lowAt")}</TableHead>
+              <TableHead title={t("inventory.zeroPointTitle")}>{t("inventory.zeroPoint")}</TableHead>
+              <TableHead>{t("inventory.expires")}</TableHead>
+              <TableHead>{t("common.lot")}</TableHead>
+              <TableHead>{t("common.status")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -105,15 +104,14 @@ export default async function InventoryPage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{item.lot ?? "—"}</TableCell>
                 <TableCell>
-                  <StockStatus item={{ ...item, name: entity.name, hasMovements }} />
+                  <StockStatus item={{ ...item, name: entity.name, hasMovements }} t={t} />
                 </TableCell>
               </TableRow>
             ))}
             {rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                  No inventory-tracked records yet. Mark a record type as &ldquo;tracks
-                  inventory&rdquo; in Settings → Record types.
+                  {t("inventory.empty")}
                 </TableCell>
               </TableRow>
             )}

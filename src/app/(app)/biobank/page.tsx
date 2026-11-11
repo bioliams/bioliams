@@ -1,10 +1,14 @@
+import { getT } from "@/i18n/server";
 import { requireOrg } from "@/lib/tenant";
 import { can } from "@/lib/permissions";
 import { listBiobankRequests } from "@/lib/services/biobank";
 import { listInventory } from "@/lib/services/inventory";
 import { BiobankView } from "./biobank-view";
 
-export const metadata = { title: "Biobank requests · BioLIMS" };
+export async function generateMetadata() {
+  const t = await getT();
+  return { title: `${t("nav.biobank")} · BioLIMS` };
+}
 
 export default async function BiobankPage() {
   const ctx = await requireOrg();

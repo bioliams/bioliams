@@ -25,6 +25,8 @@ import {
 import { setEntityProjectAction } from "@/app/(app)/settings/projects/actions";
 
 import { updateInventoryAction } from "@/app/(app)/inventory/actions";
+import { useT } from "@/i18n/client";
+import { kindLabel } from "@/i18n/labels";
 
 type Mode = "discard" | "return" | "transfer" | "settings" | null;
 
@@ -67,6 +69,7 @@ export function StockPanel({
   projectId: string | null;
 }) {
   const router = useRouter();
+  const t = useT();
   const [mode, setMode] = useState<Mode>(null);
   const [amount, setAmount] = useState("1");
   const [note, setNote] = useState("");
@@ -114,19 +117,19 @@ export function StockPanel({
     if (mode === "discard") {
       run(
         () => discardStockAction(entityId, slug, displayId, amount, note),
-        `Discarded ${amount} ${stock?.unit ?? ""}`
+        t("record.movements.discarded", { amount, unit: stock?.unit ?? "" })
       );
     } else if (mode === "return") {
       run(
         () => returnStockAction(entityId, slug, displayId, amount, note),
-        `Returned ${amount} ${stock?.unit ?? ""}`
+        t("record.movements.returned", { amount, unit: stock?.unit ?? "" })
       );
     } else if (mode === "settings") {
-      run(() => updateInventoryAction(entityId, settings), "Stock settings saved");
+      run(() => updateInventoryAction(entityId, settings), t("record.movements.settingsSaved"));
     } else if (mode === "transfer") {
       run(
         () => transferAction(entityId, slug, displayId, destination || null, note),
-        "Moved"
+        t("record.movements.moved")
       );
     }
   }
@@ -137,26 +140,28 @@ export function StockPanel({
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Movements</CardTitle>
+          <CardTitle className="text-base">{t("record.movements.title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {held && (
             <div className="flex items-center gap-2 text-sm">
-              <Badge variant="outline">Checked out</Badge>
+              <Badge variant="outline">{t("record.movements.checkedOut")}</Badge>
               <span className="text-muted-foreground">
-                {custody.isMine ? "You have this" : `${custody.holderName} has this`}
-                {custody.since ? ` since ${custody.since}` : ""}
+                {custody.isMine
+                  ? t("record.movements.youHave")
+                  : t("record.movements.theyHave", { name: custody.holderName })}
+                {custody.since ? t("record.movements.since", { when: custody.since }) : ""}
               </span>
             </div>
           )}
 
           {projects.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Project</span>
+              <span className="text-muted-foreground">{t("record.movements.project")}</span>
               <select
                 value={projectId ?? ""}
                 disabled={!canWrite || pending}
-                aria-label="Project"
+                aria-label={t("record.movements.project")}
                 className="h-8 rounded-md border bg-background px-2 text-sm"
                 onChange={(e) =>
                   run(
@@ -167,11 +172,11 @@ export function StockPanel({
                         displayId,
                         e.target.value || null
                       ),
-                    "Project updated"
+                    t("record.movements.projectUpdated")
                   )
                 }
               >
-                <option value="">Not filed under a project</option>
+                <option value="">{t("record.movements.noProject")}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -191,32 +196,32 @@ export function StockPanel({
                   run(
                     () =>
                       custodyAction(entityId, slug, displayId, held ? "checkin" : "checkout"),
-                    held ? "Checked back in" : "Checked out to you"
+                    held ? t("record.movements.checkedIn") : t("record.movements.checkedOutToYou")
                   )
                 }
               >
-                {held ? "Check in" : "Check out"}
+                {held ? t("record.movements.checkIn") : t("record.movements.checkOut")}
               </Button>
               <Button variant="outline" size="sm" onClick={() => setMode("transfer")}>
-                Move
+                {t("record.movements.move")}
               </Button>
               {stock && (
                 <>
                   <Button variant="outline" size="sm" onClick={openSettings}>
-                    Stock settings
+                    {t("record.movements.stockSettings")}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setMode("return")}>
-                    Return unused
+                    {t("record.movements.returnUnused")}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setMode("discard")}>
-                    Discard
+                    {t("record.movements.discard")}
                   </Button>
                 </>
               )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Your role can&rsquo;t change this record.
+              {t("record.movements.cantChange")}
             </p>
           )}
         </CardContent>
@@ -227,28 +232,28 @@ export function StockPanel({
           <DialogHeader>
             <DialogTitle>
               {mode === "discard"
-                ? "Discard stock"
+                ? t("record.movements.discardTitle")
                 : mode === "return"
-                  ? "Return unused stock"
+                  ? t("record.movements.returnTitle")
                   : mode === "settings"
-                    ? "Stock settings"
-                    : "Move this record"}
+                    ? t("record.movements.stockSettings")
+                    : t("record.movements.moveTitle")}
             </DialogTitle>
             <DialogDescription>
               {mode === "discard"
-                ? "Expired, contaminated or spilt. Kept separate from usage so consumption rates stay honest."
+                ? t("record.movements.discardDesc")
                 : mode === "return"
-                  ? "Stock that came back to the shelf unused."
+                  ? t("record.movements.returnDesc")
                   : mode === "settings"
-                    ? "When this item should raise an alarm. Leave the expiry blank if it doesn't go off."
-                    : "Recorded as a movement, so the history shows where it went and when."}
+                    ? t("record.movements.settingsDesc")
+                    : t("record.movements.moveDesc")}
             </DialogDescription>
           </DialogHeader>
 
           {mode === "settings" ? (
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 space-y-1.5">
-                <Label htmlFor="stock-expires">Expiry date</Label>
+                <Label htmlFor="stock-expires">{t("record.dialog.expiryDate")}</Label>
                 <Input
                   id="stock-expires"
                   type="date"
@@ -257,19 +262,19 @@ export function StockPanel({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="stock-min">Low at ({settings.unit})</Label>
+                <Label htmlFor="stock-min">{t("record.movements.lowAtUnit", { unit: settings.unit })}</Label>
                 <Input
                   id="stock-min"
                   type="number"
                   step="any"
                   min="0"
-                  placeholder="No warning"
+                  placeholder={t("record.dialog.noWarning")}
                   value={settings.minThreshold}
                   onChange={(e) => setSettings((s) => ({ ...s, minThreshold: e.target.value }))}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="stock-zero">Zero point ({settings.unit})</Label>
+                <Label htmlFor="stock-zero">{t("record.movements.zeroPointUnit", { unit: settings.unit })}</Label>
                 <Input
                   id="stock-zero"
                   type="number"
@@ -280,11 +285,10 @@ export function StockPanel({
                 />
               </div>
               <p className="col-span-2 -mt-1 text-xs text-muted-foreground">
-                At or below the zero point the item counts as out of stock — set it above 0 for
-                dead volume you can&rsquo;t draw.
+                {t("record.movements.zeroHelp")}
               </p>
               <div className="space-y-1.5">
-                <Label htmlFor="stock-unit">Unit</Label>
+                <Label htmlFor="stock-unit">{t("common.unit")}</Label>
                 <Input
                   id="stock-unit"
                   value={settings.unit}
@@ -292,7 +296,7 @@ export function StockPanel({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="stock-lot">Lot</Label>
+                <Label htmlFor="stock-lot">{t("common.lot")}</Label>
                 <Input
                   id="stock-lot"
                   value={settings.lot}
@@ -304,7 +308,7 @@ export function StockPanel({
           <div className="space-y-3">
             {mode !== "transfer" && (
               <div className="space-y-1.5">
-                <Label htmlFor="stock-amount">Amount</Label>
+                <Label htmlFor="stock-amount">{t("record.movements.amount")}</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id="stock-amount"
@@ -316,7 +320,7 @@ export function StockPanel({
                     className="w-32"
                   />
                   <span className="text-sm text-muted-foreground">
-                    {stock?.unit} — {stock?.quantity} available
+                    {t("record.movements.available", { unit: stock?.unit ?? "", quantity: stock?.quantity ?? "" })}
                   </span>
                 </div>
               </div>
@@ -324,17 +328,17 @@ export function StockPanel({
 
             {mode === "transfer" && (
               <div className="space-y-1.5">
-                <Label htmlFor="stock-destination">New location</Label>
+                <Label htmlFor="stock-destination">{t("record.movements.newLocation")}</Label>
                 <select
                   id="stock-destination"
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   className="h-9 w-full rounded-md border bg-background px-2 text-sm"
                 >
-                  <option value="">No location</option>
+                  <option value="">{t("common.noLocation")}</option>
                   {locations.map((l) => (
                     <option key={l.id} value={l.id}>
-                      {l.name} ({l.kind})
+                      {l.name} ({kindLabel(t, l.kind)})
                     </option>
                   ))}
                 </select>
@@ -343,14 +347,16 @@ export function StockPanel({
 
             <div className="space-y-1.5">
               <Label htmlFor="stock-note">
-                {mode === "discard" ? "Reason" : "Note (optional)"}
+                {mode === "discard" ? t("record.movements.reason") : t("record.movements.noteOptional")}
               </Label>
               <Input
                 id="stock-note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={
-                  mode === "discard" ? "Expired, thawed, contaminated…" : "Anything worth saying"
+                  mode === "discard"
+                    ? t("record.movements.reasonPlaceholder")
+                    : t("record.movements.notePlaceholder")
                 }
               />
             </div>
@@ -359,13 +365,17 @@ export function StockPanel({
 
           <DialogFooter>
             <Button variant="outline" onClick={close} disabled={pending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={submit}
               disabled={pending || (mode === "discard" && !note.trim())}
             >
-              {pending ? "Saving…" : mode === "settings" ? "Save" : "Record"}
+              {pending
+                ? t("common.saving")
+                : mode === "settings"
+                  ? t("common.save")
+                  : t("record.movements.record")}
             </Button>
           </DialogFooter>
         </DialogContent>

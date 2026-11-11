@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createOrganizationAction } from "./actions";
+import { useT } from "@/i18n/client";
 
 export function OnboardingForm() {
   const router = useRouter();
+  const t = useT();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -31,26 +33,26 @@ export function OnboardingForm() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>Set up your lab</CardTitle>
+        <CardTitle>{t("auth.onboardingTitle")}</CardTitle>
         <CardDescription>
-          We&apos;ll create starter record types (Sample, Reagent, Primer) and a demo freezer.
+          {t("auth.onboardingDesc")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="org">Lab / organization name</Label>
+            <Label htmlFor="org">{t("auth.labName")}</Label>
             <Input
               id="org"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Smith Lab"
+              placeholder={t("auth.labPlaceholder")}
               required
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Creating…" : "Create lab"}
+            {pending ? t("auth.creating") : t("auth.createLab")}
           </Button>
         </form>
       </CardContent>

@@ -6,6 +6,7 @@ import { requireOrg } from "@/lib/tenant";
 import { projectScope } from "@/lib/services/projects";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { getT } from "@/i18n/server";
 
 /**
  * Where every scanned label lands.
@@ -17,6 +18,7 @@ import Link from "next/link";
 export default async function ScanPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const ctx = await requireOrg();
+  const t = await getT();
 
   // A label for a record outside the scanner's projects resolves to nothing,
   // the same as a label from another lab.
@@ -42,13 +44,13 @@ export default async function ScanPage({ params }: { params: Promise<{ code: str
   // tube, and "which lab is this label from?" is the useful answer.
   return (
     <div className="mx-auto max-w-md space-y-3 py-16 text-center">
-      <h1 className="text-xl font-semibold">No record for that label</h1>
+      <h1 className="text-xl font-semibold">{t("misc.scan.notFoundTitle")}</h1>
       <p className="text-sm text-muted-foreground">
-        Nothing in this lab has the ID <span className="font-mono">{code}</span>. The label may
-        belong to another lab, or the record may have been archived.
+        {t("misc.scan.notFoundBefore")} <span className="font-mono">{code}</span>
+        {t("misc.scan.notFoundAfter")}
       </p>
       <Button asChild variant="outline">
-        <Link href="/">Back to dashboard</Link>
+        <Link href="/">{t("misc.scan.backToDashboard")}</Link>
       </Button>
     </div>
   );

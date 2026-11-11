@@ -6,9 +6,11 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { markReadAction } from "./actions";
+import { useT } from "@/i18n/client";
 
 export function MarkAllReadButton() {
   const router = useRouter();
+  const t = useT();
   const [pending, startTransition] = useTransition();
   return (
     <Button
@@ -22,7 +24,7 @@ export function MarkAllReadButton() {
         })
       }
     >
-      Mark all read
+      {t("alerts.bell.markAllRead")}
     </Button>
   );
 }

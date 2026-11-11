@@ -15,13 +15,15 @@ export type Capability =
   | "storage:write" // create and rearrange locations
   | "schema:write" // define record types and their fields
   | "members:manage" // invite people, change roles
+  | "biobank:manage" // work biobank requests through to pickup
   | "keys:manage"; // issue and revoke API keys
 
 const CAPABILITIES: Record<Role, Capability[]> = {
-  owner: ["records:write", "storage:write", "schema:write", "members:manage", "keys:manage"],
-  admin: ["records:write", "storage:write", "schema:write", "members:manage", "keys:manage"],
+  owner: ["records:write", "storage:write", "schema:write", "members:manage", "keys:manage", "biobank:manage"],
+  admin: ["records:write", "storage:write", "schema:write", "members:manage", "keys:manage", "biobank:manage"],
   member: ["records:write", "storage:write"],
-  storage: ["records:write", "storage:write"],
+  // The people who keep the freezers are the ones who pull samples for others.
+  storage: ["records:write", "storage:write", "biobank:manage"],
   viewer: [],
 };
 
@@ -29,7 +31,7 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   owner: "Full access, including members and record types",
   admin: "Full access, including members and record types",
   member: "Register and edit records, use stock, manage storage",
-  storage: "Manage storage and stock, no schema or member changes",
+  storage: "Manage storage and stock, and handle biobank requests; no schema or member changes",
   viewer: "Read-only — can search and export, cannot change anything",
 };
 

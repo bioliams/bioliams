@@ -273,6 +273,57 @@ export const purchaseRequests = pgTable(
   (t) => [index("purchase_requests_org_status_idx").on(t.organizationId, t.status)]
 );
 
+/**
+ * "Could the biobank pull these for me?" — a member asks, whoever runs the
+ * biobank works it through to a pickup.
+ *
+ * Statuses are deliberately the ones people say out loud: requested,
+ * processing, ready (for pickup), collected — or declined by the biobank /
+ * cancelled by the person who asked. `response` is the biobank's word back:
+ * where to collect, or why not.
+ */
+export const biobankRequests = pgTable(
+  "biobank_requests",
+  {
+    id: id(),
+    organizationId: orgId(),
+    title: text("title").notNull(),
+    details: text("details"),
+    neededBy: timestamp("needed_by"),
+    status: text("status", {
+      enum: ["requested", "processing", "ready", "collected", "declined", "cancelled"],
+    })
+      .notNull()
+      .default("requested"),
+    response: text("response"),
+    requestedBy: text("requested_by").references(() => user.id),
+    handledBy: text("handled_by").references(() => user.id),
+    readyAt: timestamp("ready_at"),
+    collectedAt: timestamp("collected_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("biobank_requests_org_status_idx").on(t.organizationId, t.status),
+    index("biobank_requests_requester_idx").on(t.requestedBy),
+  ]
+);
+
+/** Specific records a biobank request names, when the requester knows them. */
+export const biobankRequestItems = pgTable(
+  "biobank_request_items",
+  {
+    id: id(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => biobankRequests.id, { onDelete: "cascade" }),
+    entityId: text("entity_id")
+      .notNull()
+      .references(() => entities.id, { onDelete: "cascade" }),
+  },
+  (t) => [uniqueIndex("biobank_request_items_unique_idx").on(t.requestId, t.entityId)]
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {

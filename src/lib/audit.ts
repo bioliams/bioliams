@@ -15,6 +15,7 @@ interface AuditEntry {
     | "attachment"
     | "member"
     | "purchase"
+    | "biobank_request"
     | "project";
   targetId: string;
   targetLabel?: string;

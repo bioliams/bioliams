@@ -30,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/inventory", label: "Inventory" },
         { href: "/inventory/use", label: "Use stock" },
         { href: "/purchasing", label: "Purchasing" },
+        { href: "/biobank", label: "Biobank requests" },
         { href: "/assistant", label: "Assistant" },
       ],
     },
@@ -70,6 +71,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </NavLink>
             <NavLink href="/inventory/use">Use stock</NavLink>
             <NavLink href="/purchasing">Purchasing</NavLink>
+            <NavLink href="/biobank">Biobank requests</NavLink>
             <NavLink href="/assistant">Assistant</NavLink>
           </div>
 

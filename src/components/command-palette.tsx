@@ -11,6 +11,7 @@ import {
   ShoppingCart,
   Search,
   FileText,
+  HandHelping,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ const PAGES: PageItem[] = [
   { label: "Inventory", href: "/inventory", icon: Boxes, keywords: "stock levels" },
   { label: "Use stock", href: "/inventory/use", icon: FlaskConical, keywords: "consume record usage" },
   { label: "Purchasing", href: "/purchasing", icon: ShoppingCart, keywords: "order buy request" },
+  { label: "Biobank requests", href: "/biobank", icon: HandHelping, keywords: "biobank sample request pickup collect" },
   { label: "Audit log", href: "/settings/audit", icon: FileText, keywords: "history changes" },
 ];
 

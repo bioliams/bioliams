@@ -74,3 +74,20 @@ describe("summariseAudit", () => {
     expect(summariseAudit("entity.delete", null)).toBe("");
   });
 });
+
+describe("biobank summaries", () => {
+  it("lists only what a new request actually filled in", () => {
+    expect(
+      summariseAudit("biobank.request", { after: { records: "SMP-000012", neededBy: null } })
+    ).toBe("records: SMP-000012");
+  });
+
+  it("shows the status move and the biobank's note", () => {
+    expect(
+      summariseAudit("biobank.ready", {
+        before: { status: "processing" },
+        after: { status: "ready", note: "Front desk" },
+      })
+    ).toBe("status: processing → ready · note: empty → Front desk");
+  });
+});

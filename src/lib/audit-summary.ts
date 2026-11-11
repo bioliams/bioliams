@@ -39,6 +39,12 @@ const ACTION_LABELS: Record<string, string> = {
   "purchase.ordered": "Purchase ordered",
   "purchase.received": "Purchase received",
   "purchase.rejected": "Purchase rejected",
+  "biobank.request": "Biobank request made",
+  "biobank.processing": "Biobank started a request",
+  "biobank.ready": "Ready for pickup",
+  "biobank.collected": "Collected from the biobank",
+  "biobank.declined": "Biobank declined a request",
+  "biobank.cancelled": "Biobank request cancelled",
   "api_key.create": "API key created",
   "api_key.revoke": "API key revoked",
   "attachment.upload": "File attached",
@@ -130,7 +136,8 @@ export function summariseAudit(action: string, diff: Diff): string {
       if (diff.remaining !== undefined) parts.push(`${show(diff.remaining)} left`);
       return parts.join(" · ");
     }
-    case "entity.create": {
+    case "entity.create":
+    case "biobank.request": {
       const after = flatten(diff.after);
       const fields = Object.entries(after)
         .filter(([, v]) => v !== null && v !== undefined && v !== "")

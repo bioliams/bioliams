@@ -57,6 +57,13 @@
       "when": 1786693816154,
       "tag": "0007_fluffy_mystique",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794373618609,
+      "tag": "0008_smooth_blazing_skull",
+      "breakpoints": true
     }
   ]
 }
